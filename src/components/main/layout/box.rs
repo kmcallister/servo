@@ -16,10 +16,9 @@ use std::cmp::ApproxEq;
 use std::managed;
 use std::num::Zero;
 use geom::{Point2D, Rect, Size2D, SideOffsets2D};
-use gfx::display_list::{BaseDisplayItem, BorderDisplayItem, BorderDisplayItemClass};
-use gfx::display_list::{DisplayList, ImageDisplayItem, ImageDisplayItemClass};
-use gfx::display_list::{SolidColorDisplayItem, SolidColorDisplayItemClass, TextDisplayItem};
-use gfx::display_list::{TextDisplayItemClass};
+use gfx::display_list::{BaseDisplayItem, BorderDisplayItem};
+use gfx::display_list::{DisplayList, ImageDisplayItem};
+use gfx::display_list::{SolidColorDisplayItem, TextDisplayItem};
 use gfx::font::{FontStyle, FontWeight300};
 use gfx::geometry::Au;
 use gfx::text::text_run::TextRun;
@@ -619,7 +618,7 @@ impl RenderBox {
                         color: color,
                     };
 
-                    list.append_item(TextDisplayItemClass(text_display_item))
+                    list.append_item(TextDisplayItem(text_display_item))
                 }
 
                 // Draw debug frames for text bounds.
@@ -640,7 +639,7 @@ impl RenderBox {
                             color: SideOffsets2D::new_all_same(rgb(0, 0, 200).to_gfx_color())
 
                         };
-                        list.append_item(BorderDisplayItemClass(border_display_item))
+                        list.append_item(BorderDisplayItem(border_display_item))
                     }
 
                     // Draw a rectangle representing the baselines.
@@ -661,7 +660,7 @@ impl RenderBox {
                             color: SideOffsets2D::new_all_same(rgb(0, 200, 0).to_gfx_color())
 
                         };
-                        list.append_item(BorderDisplayItemClass(border_display_item))
+                        list.append_item(BorderDisplayItem(border_display_item))
                     }
 
                     ()
@@ -687,7 +686,7 @@ impl RenderBox {
                             color: SideOffsets2D::new_all_same(rgb(0, 0, 200).to_gfx_color())
 
                         };
-                        list.append_item(BorderDisplayItemClass(border_display_item))
+                        list.append_item(BorderDisplayItem(border_display_item))
                     }
                     
                     ()
@@ -712,7 +711,7 @@ impl RenderBox {
                                 },
                                 image: image.clone(),
                             };
-                            list.append_item(ImageDisplayItemClass(image_display_item))
+                            list.append_item(ImageDisplayItem(image_display_item))
                         }
                     }
                     None => {
@@ -753,7 +752,7 @@ impl RenderBox {
                     color: background_color.to_gfx_color(),
                 };
 
-                list.append_item(SolidColorDisplayItemClass(solid_color_display_item))
+                list.append_item(SolidColorDisplayItem(solid_color_display_item))
             }
         }
     }
@@ -937,7 +936,7 @@ impl RenderBox {
                                         left_color.to_gfx_color())
             };
 
-            list.append_item(BorderDisplayItemClass(border_display_item))
+            list.append_item(BorderDisplayItem(border_display_item))
         }
     }
 }

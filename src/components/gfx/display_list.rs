@@ -59,10 +59,10 @@ impl<E> DisplayList<E> {
 
 /// One drawing command in the list.
 pub enum DisplayItem<E> {
-    SolidColorDisplayItemClass(~SolidColorDisplayItem<E>),
-    TextDisplayItemClass(~TextDisplayItem<E>),
-    ImageDisplayItemClass(~ImageDisplayItem<E>),
-    BorderDisplayItemClass(~BorderDisplayItem<E>),
+    SolidColorDisplayItem(~SolidColorDisplayItem<E>),
+    TextDisplayItem(~TextDisplayItem<E>),
+    ImageDisplayItem(~ImageDisplayItem<E>),
+    BorderDisplayItem(~BorderDisplayItem<E>),
 }
 
 /// Information common to all display items.
@@ -111,11 +111,11 @@ impl<E> DisplayItem<E> {
     /// Renders this display item into the given render context.
     fn draw_into_context(&self, render_context: &RenderContext) {
         match *self {
-            SolidColorDisplayItemClass(ref solid_color) => {
+            SolidColorDisplayItem(ref solid_color) => {
                 render_context.draw_solid_color(&solid_color.base.bounds, solid_color.color)
             }
 
-            TextDisplayItemClass(ref text) => {
+            TextDisplayItem(ref text) => {
                 debug!("Drawing text at %?.", text.base.bounds);
 
                 // FIXME(pcwalton): Allocating? Why?
@@ -142,13 +142,13 @@ impl<E> DisplayItem<E> {
                 }
             }
 
-            ImageDisplayItemClass(ref image_item) => {
+            ImageDisplayItem(ref image_item) => {
                 debug!("Drawing image at %?.", image_item.base.bounds);
 
                 render_context.draw_image(image_item.base.bounds, image_item.image.clone())
             }
 
-            BorderDisplayItemClass(ref border) => {
+            BorderDisplayItem(ref border) => {
                 render_context.draw_border(&border.base.bounds,
                                            border.border,
                                            border.color)
@@ -160,10 +160,10 @@ impl<E> DisplayItem<E> {
         // FIXME(tkuehn): Workaround for Rust region bug.
         unsafe {
             match *self {
-                SolidColorDisplayItemClass(ref solid_color) => transmute_region(&solid_color.base),
-                TextDisplayItemClass(ref text) => transmute_region(&text.base),
-                ImageDisplayItemClass(ref image_item) => transmute_region(&image_item.base),
-                BorderDisplayItemClass(ref border) => transmute_region(&border.base)
+                SolidColorDisplayItem(ref solid_color) => transmute_region(&solid_color.base),
+                TextDisplayItem(ref text) => transmute_region(&text.base),
+                ImageDisplayItem(ref image_item) => transmute_region(&image_item.base),
+                BorderDisplayItem(ref border) => transmute_region(&border.base)
             }
         }
     }
