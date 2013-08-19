@@ -196,13 +196,10 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
     }
 
     fn render(&mut self, tiles: ~[BufferRequest], scale: f32) {
-        let render_layer;
-        match self.render_layer {
-            Some(ref r_layer) => {
-                render_layer = r_layer;
-            }
-            _ => return, // nothing to do
-        }
+        let render_layer = match self.render_layer {
+            Some(ref r) => r,
+            None => return, // nothing to do
+        };
 
         self.compositor.set_render_state(RenderingRenderState);
         do time::profile(time::RenderingCategory, self.profiler_chan.clone()) {
