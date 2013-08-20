@@ -20,6 +20,8 @@ use render_context::RenderContext;
 use text::SendableTextRun;
 
 use std::cast::transmute_region;
+use std::vec::VecIterator;
+use std::iterator::Map;
 use geom::{Point2D, Rect, Size2D, SideOffsets2D};
 use servo_net::image::base::Image;
 use servo_util::range::Range;
@@ -28,6 +30,13 @@ use extra::arc::Arc;
 /// A list of rendering operations to be performed.
 pub struct DisplayList<E> {
     list: ~[DisplayItem<E>]
+}
+
+/// For DLBI we compare display list items based on these keys.
+#[deriving(Eq, IterBytes)]
+pub struct DisplayItemKey {
+    renderbox_uniq: uint,
+    ty: DisplayItemType,
 }
 
 impl<E> DisplayList<E> {
@@ -55,6 +64,15 @@ impl<E> DisplayList<E> {
         }
         debug!("Ending display list.")
     }
+
+    pub fn keys<'t>(&'t self) -> Map<'t, &'t DisplayItem<E>, (DisplayItemKey, &'t DisplayItem<E>), VecIterator<'t, DisplayItem<E>>> {
+        do self.list.iter().map |it| {
+            (DisplayItemKey {
+                renderbox_uniq: it.base().renderbox_uniq,
+                ty: it.ty(),
+            }, it)
+        }
+    }
 }
 
 /// One drawing command in the list.
@@ -65,12 +83,24 @@ pub enum DisplayItem<E> {
     BorderDisplayItem(~BorderDisplayItem<E>),
 }
 
+/// The types of DisplayItem.
+#[deriving(Eq, IterBytes)]
+pub enum DisplayItemType {
+    SolidColorDisplayItemType,
+    TextDisplayItemType,
+    ImageDisplayItemType,
+    BorderDisplayItemType,
+}
+
 /// Information common to all display items.
 pub struct BaseDisplayItem<E> {
     /// The boundaries of the display item.
     ///
     /// TODO: Which coordinate system should this use?
     bounds: Rect<Au>,
+
+    /// The unique_id of the RenderBox that produced this display item.
+    renderbox_uniq: uint,
 
     /// Extra data: either the originating flow (for hit testing) or nothing (for rendering).
     extra: E,
@@ -165,6 +195,15 @@ impl<E> DisplayItem<E> {
                 ImageDisplayItem(ref image_item) => transmute_region(&image_item.base),
                 BorderDisplayItem(ref border) => transmute_region(&border.base)
             }
+        }
+    }
+
+    pub fn ty(&self) -> DisplayItemType {
+        match *self {
+            SolidColorDisplayItem(_) => SolidColorDisplayItemType,
+            TextDisplayItem(_) => TextDisplayItemType,
+            ImageDisplayItem(_) => ImageDisplayItemType,
+            BorderDisplayItem(_) => BorderDisplayItemType,
         }
     }
 

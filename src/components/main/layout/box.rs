@@ -15,6 +15,7 @@ use std::cell::Cell;
 use std::cmp::ApproxEq;
 use std::managed;
 use std::num::Zero;
+use std::borrow;
 use geom::{Point2D, Rect, Size2D, SideOffsets2D};
 use gfx::display_list::{BaseDisplayItem, BorderDisplayItem};
 use gfx::display_list::{DisplayList, ImageDisplayItem};
@@ -209,6 +210,11 @@ impl RenderBox {
                 callback(&mut unscanned_text_box.base)
             }
         }
+    }
+
+    /// Use the address in memory as an identifier which is unique for boxes that still exist.
+    pub fn unique_id(&self) -> uint {
+        borrow::to_uint(self)
     }
 
     /// A convenience function to return the position of this box.
@@ -582,6 +588,7 @@ impl RenderBox {
                                                   dirty: &Rect<Au>,
                                                   offset: &Point2D<Au>,
                                                   list: &Cell<DisplayList<E>>) {
+        let uniq = self.unique_id();
         let box_bounds = self.position();
         let absolute_box_bounds = box_bounds.translate(offset);
         debug!("RenderBox::build_display_list at rel=%?, abs=%?: %s",
@@ -610,6 +617,7 @@ impl RenderBox {
                     let text_display_item = ~TextDisplayItem {
                         base: BaseDisplayItem {
                             bounds: absolute_box_bounds,
+                            renderbox_uniq: uniq,
                             extra: ExtraDisplayListData::new(*self),
                         },
                         // FIXME(pcwalton): Allocation? Why?!
@@ -633,6 +641,7 @@ impl RenderBox {
                         let border_display_item = ~BorderDisplayItem {
                             base: BaseDisplayItem {
                                 bounds: absolute_box_bounds,
+                                renderbox_uniq: uniq,
                                 extra: ExtraDisplayListData::new(*self),
                             },
                             border: debug_border,
@@ -654,6 +663,7 @@ impl RenderBox {
                         let border_display_item = ~BorderDisplayItem {
                             base: BaseDisplayItem {
                                 bounds: baseline,
+                                renderbox_uniq: uniq,
                                 extra: ExtraDisplayListData::new(*self),
                             },
                             border: debug_border,
@@ -680,6 +690,7 @@ impl RenderBox {
                         let border_display_item = ~BorderDisplayItem {
                             base: BaseDisplayItem {
                                 bounds: absolute_box_bounds,
+                                renderbox_uniq: uniq,
                                 extra: ExtraDisplayListData::new(*self),
                             },
                             border: debug_border,
@@ -707,6 +718,7 @@ impl RenderBox {
                             let image_display_item = ~ImageDisplayItem {
                                 base: BaseDisplayItem {
                                     bounds: absolute_box_bounds,
+                                    renderbox_uniq: uniq,
                                     extra: ExtraDisplayListData::new(*self),
                                 },
                                 image: image.clone(),
@@ -747,6 +759,7 @@ impl RenderBox {
                 let solid_color_display_item = ~SolidColorDisplayItem {
                     base: BaseDisplayItem {
                         bounds: *absolute_bounds,
+                        renderbox_uniq: self.unique_id(),
                         extra: ExtraDisplayListData::new(*self),
                     },
                     color: background_color.to_gfx_color(),
@@ -924,6 +937,7 @@ impl RenderBox {
             let border_display_item = ~BorderDisplayItem {
                 base: BaseDisplayItem {
                     bounds: *abs_bounds,
+                    renderbox_uniq: self.unique_id(),
                     extra: ExtraDisplayListData::new(*self),
                 },
                 border: SideOffsets2D::new(border.top,

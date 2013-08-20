@@ -6,7 +6,8 @@
 
 use azure::{AzFloat, AzGLContext};
 use azure::azure_hl::{B8G8R8A8, DrawTarget};
-use display_list::DisplayList;
+use display_list::{DisplayItem, DisplayItemKey, DisplayList};
+use geometry::Au;
 use servo_msg::compositor_msg::{RenderListener, IdleRenderState, RenderingRenderState, LayerBuffer};
 use servo_msg::compositor_msg::{LayerBufferSet, Epoch};
 use servo_msg::constellation_msg::PipelineId;
@@ -19,6 +20,9 @@ use render_context::RenderContext;
 
 use std::cell::Cell;
 use std::comm::{Chan, Port, SharedChan};
+use std::hashmap::HashMap;
+use std::container::Map;
+use std::iterator::FromIterator;
 use extra::arc::Arc;
 
 use servo_util::time::{ProfilerChan, profile};
@@ -138,6 +142,38 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
         }
     }
 
+    fn set_render_layer(&mut self, render_layer: RenderLayer<T>) {
+        { // borrow self for HashMap
+
+            // This is where we do display-list based invalidation (DLBI).
+            // Find every item in the new display list which wasn't in the old one.
+            let old_keys: HashMap<DisplayItemKey, &DisplayItem<T>>
+                = match self.render_layer {
+                    None => HashMap::new(),
+                    Some(ref rl) => {
+                        let mut it = rl.display_list.get().keys();
+                        FromIterator::from_iterator(&mut it)
+                    }
+                };
+
+            let mut invalidate: Option<Rect<Au>> = None;
+
+            for (key, item) in render_layer.display_list.get().keys() {
+                debug!("new DL contains %?", key);
+                if !old_keys.contains_key(&key) {
+                    // A new display item contributes to the invalidation rectangle.
+                    let bounds = item.base().bounds;
+                    invalidate = Some(invalidate.map_default(bounds,
+                        |v| v.union(&bounds)));
+                }
+            }
+
+            debug!("invalidate = %?", invalidate);
+        }
+
+        self.render_layer = Some(render_layer);
+    }
+
     fn start(&mut self) {
         debug!("render_task: beginning rendering loop");
 
@@ -148,7 +184,7 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
                         self.epoch.next();
                         self.compositor.set_layer_page_size(self.id, render_layer.size, self.epoch);
                     }
-                    self.render_layer = Some(render_layer);
+                    self.set_render_layer(render_layer);
                     self.last_paint_msg = None;
                 }
                 ReRenderMsg(tiles, scale, epoch) => {
