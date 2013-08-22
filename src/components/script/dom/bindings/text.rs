@@ -34,6 +34,10 @@ extern fn finalize_comment(_fop: *JSFreeOp, obj: *JSObject) {
 }
 
 extern fn finalize_doctype(_fop: *JSFreeOp, obj: *JSObject) {
+    use std::rt::local::Local;
+    use std::rt::task::Task;
+    debug!("finalizing doctype from thread %?",
+        unsafe { Local::unsafe_borrow::<Task>() });
     debug!("doctype finalize: %?!", obj as uint);
     unsafe {
         let node: AbstractNode<ScriptView> = unwrap(obj);

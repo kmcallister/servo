@@ -50,6 +50,7 @@ use servo_util::tree::TreeNodeRef;
 use servo_util::url::make_url;
 use extra::url::Url;
 use extra::future::{from_value, Future};
+use std::local_data;
 
 /// Messages used to control the script task.
 pub enum ScriptMsg {
@@ -367,6 +368,33 @@ pub struct ScriptTask {
     js_runtime: js::rust::rt,
 }
 
+#[unsafe_destructor]
+impl Drop for ScriptTask {
+    fn drop(&self) {
+        use std::rt::local::Local;
+        use std::rt::task::Task;
+        unsafe {
+            let t: *mut Task = Local::unsafe_borrow();
+            debug!("dropping ScriptTask from task %?, storage is %?", t, (*t).storage);
+        }
+    }
+}
+
+struct Foo;
+
+impl Drop for Foo {
+    fn drop(&self) {
+        use std::rt::local::Local;
+        use std::rt::task::Task;
+        unsafe {
+            let t: *mut Task = Local::unsafe_borrow();
+            debug!("dropping TLS Foo from task %?, storage is %?", t, (*t).storage);
+        }
+    }
+}
+
+static key_foo: local_data::KeyValue<Foo> = local_data::Key;
+
 /// Returns the relevant page from the associated JS Context.
 pub fn page_from_context(js_context: *JSContext) -> *mut Page {
     unsafe {
@@ -430,6 +458,7 @@ impl ScriptTask {
         let mut the_task = task();
         the_task.sched_mode(SingleThreaded);
         do spawn {
+            local_data::set(&key_foo, Foo);
             let script_task = ScriptTask::new(id,
                                               @compositor.take() as @ScriptListener,
                                               layout_chan.clone(),
