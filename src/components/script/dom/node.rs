@@ -270,6 +270,15 @@ impl<'self, View> AbstractNode<View> {
         }
     }
 
+    /// Layout data boxes are allocated within the layout task.  We shouldn't try to free them
+    /// within script, but the node finalizers (invoked by the SpiderMonkey GC) would do so
+    /// (see #762).  So they must call this method first.
+    pub unsafe fn forget_layout_data(self) {
+        do self.with_mut_base |base| {
+            cast::forget(base.layout_data.take());
+        }
+    }
+
     // Convenience accessors
 
     /// Returns the type ID of this node. Fails if this node is borrowed mutably.

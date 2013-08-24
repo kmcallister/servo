@@ -21,6 +21,7 @@ extern fn finalize_text(_fop: *JSFreeOp, obj: *JSObject) {
     debug!("text finalize: %?!", obj as uint);
     unsafe {
         let node: AbstractNode<ScriptView> = unwrap(obj);
+        node.forget_layout_data();
         let _elem: ~Text = cast::transmute(node.raw_object());
     }
 }
@@ -29,6 +30,7 @@ extern fn finalize_comment(_fop: *JSFreeOp, obj: *JSObject) {
     debug!("comment finalize: %?!", obj as uint);
     unsafe {
         let node: AbstractNode<ScriptView> = unwrap(obj);
+        node.forget_layout_data();
         let _elem: ~Comment = cast::transmute(node.raw_object());
     }
 }
@@ -37,6 +39,7 @@ extern fn finalize_doctype(_fop: *JSFreeOp, obj: *JSObject) {
     debug!("doctype finalize: %?!", obj as uint);
     unsafe {
         let node: AbstractNode<ScriptView> = unwrap(obj);
+        node.forget_layout_data();
         let _elem: ~Doctype<ScriptView> = cast::transmute(node.raw_object());
     }
 }
