@@ -19,6 +19,7 @@ use dom::window::Window;
 
 use std::cast;
 use std::cast::transmute;
+use std::cell::Cell;
 use std::libc::c_void;
 use js::jsapi::{JSObject, JSContext};
 use js::rust::Compartment;
@@ -87,7 +88,7 @@ pub struct Node<View> {
     owner_doc: Option<AbstractDocument>,
 
     /// Layout information. Only the layout task may touch this data.
-    priv layout_data: Option<@mut ()>
+    priv layout_data: Option<~()>
 }
 
 /// The different types of nodes.
@@ -247,9 +248,9 @@ impl<'self, View> AbstractNode<View> {
 
     /// Returns the layout data, unsafely cast to whatever type layout wishes. Only layout is
     /// allowed to call this. This is wildly unsafe and is therefore marked as such.
-    pub unsafe fn unsafe_layout_data<T>(self) -> @mut T {
+    pub unsafe fn unsafe_layout_data<'t,T>(&'t self) -> &'t T {
         do self.with_base |base| {
-            transmute(base.layout_data.unwrap())
+            transmute(base.layout_data.get_ref())
         }
     }
     /// Returns true if this node has layout data and false otherwise.
@@ -260,13 +261,10 @@ impl<'self, View> AbstractNode<View> {
     }
     /// Sets the layout data, unsafely casting the type as layout wishes. Only layout is allowed
     /// to call this. This is wildly unsafe and is therefore marked as such.
-    pub unsafe fn unsafe_set_layout_data<T>(self, data: @mut T) {
-        // Don't decrement the refcount on data, since we're giving it to the
-        // base structure.
-        cast::forget(data);
-
+    pub unsafe fn unsafe_set_layout_data<T>(self, data: ~T) {
+        let cell = Cell::new(transmute(data));
         do self.with_mut_base |base| {
-            base.layout_data = Some(transmute(data))
+            base.layout_data = Some(cell.take());
         }
     }
 

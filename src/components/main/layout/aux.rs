@@ -44,16 +44,16 @@ impl LayoutData {
 
 /// Functionality useful for querying the layout-specific data on DOM nodes.
 pub trait LayoutAuxMethods {
-    fn layout_data(self) -> @mut LayoutData;
+    fn layout_data<'t>(&'t self) -> &'t LayoutData;
     fn has_layout_data(self) -> bool;
-    fn set_layout_data(self, data: @mut LayoutData);
+    fn set_layout_data(self, data: ~LayoutData);
 
-    fn initialize_layout_data(self) -> Option<@mut LayoutData>;
-    fn initialize_style_for_subtree(self, refs: &mut ~[@mut LayoutData]);
+    fn initialize_layout_data<'t>(&'t self) -> Option<&'t LayoutData>;
+    fn initialize_style_for_subtree<'t>(self, refs: &mut ~[&'t LayoutData]);
 }
 
 impl LayoutAuxMethods for AbstractNode<LayoutView> {
-    fn layout_data(self) -> @mut LayoutData {
+    fn layout_data<'t>(&'t self) -> &'t LayoutData {
         unsafe {
             self.unsafe_layout_data()
         }
@@ -63,7 +63,7 @@ impl LayoutAuxMethods for AbstractNode<LayoutView> {
             self.unsafe_has_layout_data()
         }
     }
-    fn set_layout_data(self, data: @mut LayoutData) {
+    fn set_layout_data(self, data: ~LayoutData) {
         unsafe {
             self.unsafe_set_layout_data(data)
         }
@@ -71,21 +71,21 @@ impl LayoutAuxMethods for AbstractNode<LayoutView> {
 
     /// If none exists, creates empty layout data for the node (the reader-auxiliary
     /// box in the COW model) and populates it with an empty style object.
-    fn initialize_layout_data(self) -> Option<@mut LayoutData> {
+    fn initialize_layout_data<'t>(&'t self) -> Option<&'t LayoutData> {
         if self.has_layout_data() {
             self.layout_data().boxes.display_list = None;
             self.layout_data().boxes.range = None;
             None
         } else {
-            let data = @mut LayoutData::new();
+            let data = ~LayoutData::new();
             self.set_layout_data(data);
-            Some(data)
+            Some(self.layout_data())
         }
     }
 
     /// Initializes layout data and styles for a Node tree, if any nodes do not have
     /// this data already. Append created layout data to the task's GC roots.
-    fn initialize_style_for_subtree(self, refs: &mut ~[@mut LayoutData]) {
+    fn initialize_style_for_subtree<'t>(&'t self, refs: &mut ~[&'t LayoutData]) {
         let _ = for n in self.traverse_preorder() {
             match n.initialize_layout_data() {
                 Some(r) => refs.push(r),
