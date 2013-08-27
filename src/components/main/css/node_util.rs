@@ -5,7 +5,8 @@
 use layout::aux::LayoutAuxMethods;
 use layout::incremental::RestyleDamage;
 
-use std::cast::transmute;
+use std::cast;
+use std::cell::Cell;
 use newcss::complete::CompleteSelectResults;
 use script::dom::node::{AbstractNode, LayoutView};
 
@@ -31,15 +32,20 @@ impl<'self> NodeUtil<'self> for AbstractNode<LayoutView> {
             fail!(~"style() called on a node without aux data!");
         }
 
-        match self.layout_data().style {
-            None => fail!(~"style() called on node without a style!"),
-            Some(ref style) => unsafe { transmute(style) }
+        do self.read_layout_data |layout_data| {
+            match layout_data.style {
+                None => fail!(~"style() called on node without a style!"),
+                Some(ref style) => unsafe { cast::transmute_region(style) }
+            }
         }
     }
 
     /// Does this node have a computed style yet?
     fn have_css_select_results(self) -> bool {
-        self.has_layout_data() && self.layout_data().style.is_some()
+        if !self.has_layout_data() {
+            return false;
+        }
+        self.read_layout_data(|data| data.style.is_some())
     }
 
     /// Update the computed style of an HTML element with a style specified by CSS.
@@ -48,7 +54,8 @@ impl<'self> NodeUtil<'self> for AbstractNode<LayoutView> {
             fail!(~"set_css_select_results() called on a node without aux data!");
         }
 
-        self.layout_data().style = Some(decl);
+        let cell = Cell::new(decl);
+        self.write_layout_data(|data| data.style = Some(cell.take()));
     }
 
     /// Get the description of how to account for recent style changes.
@@ -65,7 +72,11 @@ impl<'self> NodeUtil<'self> for AbstractNode<LayoutView> {
         if !self.has_layout_data() {
             return default;
         }
-        self.layout_data().restyle_damage.unwrap_or_default(default)
+        do self.read_layout_data |layout_data| {
+            layout_data.restyle_damage
+                .map(|&x| RestyleDamage::from_int(x))
+                .unwrap_or_default(default)
+        }
     }
 
     /// Set the restyle damage field.
@@ -74,6 +85,6 @@ impl<'self> NodeUtil<'self> for AbstractNode<LayoutView> {
             fail!(~"set_restyle_damage() called on a node without aux data!");
         }
 
-        self.layout_data().restyle_damage = Some(damage);
+        self.write_layout_data(|data| data.restyle_damage = Some(damage.to_int()));
     }
 }

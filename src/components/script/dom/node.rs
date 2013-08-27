@@ -18,12 +18,17 @@ use dom::htmliframeelement::HTMLIFrameElement;
 use dom::window::Window;
 
 use std::cast;
+use std::cell::Cell;
 use std::cast::transmute;
 use std::libc::c_void;
 use js::jsapi::{JSObject, JSContext};
 use js::rust::Compartment;
 use netsurfcss::util::VoidPtrLike;
 use servo_util::tree::{TreeNode, TreeNodeRef};
+use newcss::complete::CompleteSelectResults;
+use extra::arc::{Arc, RWArc};
+use gfx::display_list::DisplayList;
+use servo_util::range::Range;
 
 //
 // The basic Node structure
@@ -58,7 +63,7 @@ pub struct AbstractNodeChildrenIterator<View> {
 ///
 /// `View` describes extra data associated with this node that this task has access to. For
 /// the script task, this is the unit type `()`. For the layout task, this is
-/// `layout::aux::LayoutData`.
+/// `LayoutData`.
 pub struct Node<View> {
     /// The JavaScript wrapper for this node.
     wrapper: WrapperCache,
@@ -87,7 +92,7 @@ pub struct Node<View> {
     owner_doc: Option<AbstractDocument>,
 
     /// Layout information. Only the layout task may touch this data.
-    priv layout_data: Option<@mut ()>
+    priv layout_data: Option<RWArc<LayoutData>>,
 }
 
 /// The different types of nodes.
@@ -242,31 +247,6 @@ impl<'self, View> AbstractNode<View> {
     pub fn from_box<T>(ptr: *mut rust_box<T>) -> AbstractNode<View> {
         AbstractNode {
             obj: ptr as *mut Node<View>
-        }
-    }
-
-    /// Returns the layout data, unsafely cast to whatever type layout wishes. Only layout is
-    /// allowed to call this. This is wildly unsafe and is therefore marked as such.
-    pub unsafe fn unsafe_layout_data<T>(self) -> @mut T {
-        do self.with_base |base| {
-            transmute(base.layout_data.unwrap())
-        }
-    }
-    /// Returns true if this node has layout data and false otherwise.
-    pub unsafe fn unsafe_has_layout_data(self) -> bool {
-        do self.with_base |base| {
-            base.layout_data.is_some()
-        }
-    }
-    /// Sets the layout data, unsafely casting the type as layout wishes. Only layout is allowed
-    /// to call this. This is wildly unsafe and is therefore marked as such.
-    pub unsafe fn unsafe_set_layout_data<T>(self, data: @mut T) {
-        // Don't decrement the refcount on data, since we're giving it to the
-        // base structure.
-        cast::forget(data);
-
-        do self.with_mut_base |base| {
-            base.layout_data = Some(transmute(data))
         }
     }
 
@@ -721,5 +701,65 @@ impl CacheableWrapper for Text {
 impl BindingObject for Text {
     fn GetParentObject(&self, cx: *JSContext) -> Option<@mut CacheableWrapper> {
         self.parent.GetParentObject(cx)
+    }
+}
+
+// This stuff is notionally private to layout, but we put it here because it needs
+// to be stored in a Node, and we can't have cross-crate cyclic dependencies.
+
+pub struct DisplayBoxes {
+    display_list: Option<Arc<DisplayList<AbstractNode<()>>>>,
+    range: Option<Range>,
+}
+
+/// Data that layout associates with a node.
+pub struct LayoutData {
+    /// The results of CSS styling for this node.
+    style: Option<CompleteSelectResults>,
+
+    /// Description of how to account for recent style changes.
+    restyle_damage: Option<int>,
+
+    /// The boxes assosiated with this flow.
+    /// Used for getBoundingClientRect and friends.
+    boxes: DisplayBoxes,
+}
+
+impl LayoutData {
+    /// Creates new layout data.
+    pub fn new() -> LayoutData {
+        LayoutData {
+            style: None,
+            restyle_damage: None,
+            boxes: DisplayBoxes { display_list: None, range: None },
+        }
+    }
+}
+
+impl AbstractNode<LayoutView> {
+    pub fn read_layout_data<R>(self, blk: &fn(data: &LayoutData) -> R) -> R {
+        let cell = Cell::new(blk);
+        do self.with_base |b| {
+            b.layout_data.get_ref().read(cell.take())
+        }
+    }
+
+    pub fn write_layout_data<R>(self, blk: &fn(data: &mut LayoutData) -> R) -> R {
+        let cell = Cell::new(blk);
+        do self.with_mut_base |b| {
+            b.layout_data.get_mut_ref().write(cell.take())
+        }
+    }
+
+    pub fn set_layout_data(self, data: RWArc<LayoutData>) {
+        do self.with_mut_base |b| {
+            b.layout_data = Some(data.clone());
+        }
+    }
+
+    pub fn has_layout_data(self) -> bool {
+        do self.with_base |b| {
+            b.layout_data.is_some()
+        }
     }
 }

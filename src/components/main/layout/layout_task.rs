@@ -7,7 +7,7 @@
 
 use css::matching::MatchMethods;
 use css::select::new_css_select_ctx;
-use layout::aux::{LayoutData, LayoutAuxMethods};
+use layout::aux::LayoutAuxMethods;
 use layout::box_builder::LayoutTreeBuilder;
 use layout::context::LayoutContext;
 use layout::display_list_builder::{DisplayListBuilder};
@@ -30,7 +30,7 @@ use newcss::select::SelectCtx;
 use newcss::stylesheet::Stylesheet;
 use newcss::types::OriginAuthor;
 use script::dom::event::ReflowEvent;
-use script::dom::node::{AbstractNode, LayoutView};
+use script::dom::node::{AbstractNode, LayoutView, LayoutData};
 use script::layout_interface::{AddStylesheetMsg, ContentBoxQuery};
 use script::layout_interface::{HitTestQuery, ContentBoxResponse, HitTestResponse};
 use script::layout_interface::{ContentBoxesQuery, ContentBoxesResponse, ExitMsg, LayoutQuery};
@@ -46,6 +46,7 @@ use servo_util::time::{ProfilerChan, profile};
 use servo_util::time;
 use servo_util::range::Range;
 use extra::url::Url;
+use extra::arc::RWArc;
 
 struct LayoutTask {
     id: PipelineId,
@@ -60,7 +61,8 @@ struct LayoutTask {
     screen_size: Option<Size2D<Au>>,
 
     /// This is used to root reader data.
-    layout_refs: ~[@mut LayoutData],
+    // FIXME: Do we still need this in the RWArc case?
+    layout_refs: ~[RWArc<LayoutData>],
 
     display_list: Option<Arc<DisplayList<AbstractNode<()>>>>,
 
@@ -328,13 +330,13 @@ impl LayoutTask {
                     };
                     assert!(node.has_layout_data(), "Node has display item but no layout data");
 
-                    let layout_data = node.layout_data();
-                    layout_data.boxes.display_list = Some(display_list.clone());
+                    do node.write_layout_data |layout_data| {
+                        layout_data.boxes.display_list = Some(display_list.clone());
 
-                    if layout_data.boxes.range.is_none() {
-                        debug!("Creating initial range for node");
-                        layout_data.boxes.range = Some(Range::new(i,1)); 
-                    } else {
+                        if layout_data.boxes.range.is_none() {
+                            debug!("Creating initial range for node");
+                            layout_data.boxes.range = Some(Range::new(i,1));
+                        } else {
                             debug!("Appending item to range");
                             unsafe {
                                 let old_node: AbstractNode<()> = transmute(node);
@@ -343,6 +345,7 @@ impl LayoutTask {
                             }
 
                             layout_data.boxes.range.unwrap().extend_by(1);
+                        }
                     }
                 }
 
@@ -376,27 +379,29 @@ impl LayoutTask {
                     transmute(node)
                 };
 
-                let response = match (node.layout_data().boxes.display_list.clone(), node.layout_data().boxes.range) {
-                    (Some(display_list), Some(range)) => {
-                        let mut rect: Option<Rect<Au>> = None;
-                        for i in range.eachi() {
-                            rect = match rect {
-                                Some(acc) => Some(acc.union(&display_list.get().list[i].bounds())),
-                                None => Some(display_list.get().list[i].bounds())
+                let response = do node.read_layout_data |layout_data| {
+                    match (layout_data.boxes.display_list.clone(), layout_data.boxes.range) {
+                        (Some(display_list), Some(range)) => {
+                            let mut rect: Option<Rect<Au>> = None;
+                            for i in range.eachi() {
+                                rect = match rect {
+                                    Some(acc) => Some(acc.union(&display_list.get().list[i].bounds())),
+                                    None => Some(display_list.get().list[i].bounds())
+                                }
+                            }
+
+                            match rect {
+                                None => {
+                                    error!("no boxes for node");
+                                    Err(())
+                                }
+                                Some(rect) => Ok(ContentBoxResponse(rect))
                             }
                         }
-                        
-                        match rect {
-                            None => {
-                                error!("no boxes for node");
-                                Err(())
-                            }
-                            Some(rect) => Ok(ContentBoxResponse(rect))
+                        _ => {
+                            error!("no display list present");
+                            Err(())
                         }
-                    }
-                    _ => {
-                        error!("no display list present");
-                        Err(())
                     }
                 };
 
@@ -408,16 +413,18 @@ impl LayoutTask {
                     transmute(node)
                 };
 
-                let response = match (node.layout_data().boxes.display_list.clone(), node.layout_data().boxes.range) {
-                    (Some(display_list), Some(range)) => {
-                        let mut boxes = ~[];
-                        for i in range.eachi() {
-                            boxes.push(display_list.get().list[i].bounds());
-                        }
+                let response = do node.read_layout_data |layout_data| {
+                    match (layout_data.boxes.display_list.clone(), layout_data.boxes.range) {
+                        (Some(display_list), Some(range)) => {
+                            let mut boxes = ~[];
+                            for i in range.eachi() {
+                                boxes.push(display_list.get().list[i].bounds());
+                            }
 
-                        Ok(ContentBoxesResponse(boxes))
+                            Ok(ContentBoxesResponse(boxes))
+                        }
+                        _ => Err(()),
                     }
-                    _ => Err(()),
                 };
 
                 reply_chan.send(response)
