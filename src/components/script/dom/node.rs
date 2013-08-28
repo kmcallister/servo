@@ -117,6 +117,39 @@ pub struct Doctype<View> {
     force_quirks: bool
 }
 
+fn dump_doctype<View>(node: &Doctype<View>) {
+        use servo_util::debug::hexdump;
+        use std::sys::size_of_val;
+        use std::io;
+        io::stderr().write_str(fmt!("\
+base         %p\n\
+wrapper      %p\n\
+type_id      %p\n\
+abstract     %p\n\
+parent_node  %p\n\
+first_child  %p\n\
+last_child   %p\n\
+next_sibling %p\n\
+prev_sibling %p\n\
+owner_doc    %p\n\
+layout_data  %p\n\
+name         %p\n\
+public_id    %p\n\
+system_id    %p\n\
+force_quirks %p\n",
+               node, &node.parent.wrapper, &node.parent.type_id, &node.parent.abstract, &node.parent.parent_node,
+               &node.parent.first_child, &node.parent.last_child, &node.parent.next_sibling, &node.parent.prev_sibling,
+               &node.parent.owner_doc, &node.parent.layout_data, &node.name, &node.public_id, &node.system_id, &node.force_quirks));
+        hexdump(node);
+}
+
+#[unsafe_destructor]
+impl<T> Drop for Doctype<T> {
+    fn drop(&self) {
+        dump_doctype(self);
+    }
+}
+
 impl Doctype<ScriptView> {
     /// Creates a new `DOCTYPE` tag.
     pub fn new(name: ~str,
@@ -124,13 +157,15 @@ impl Doctype<ScriptView> {
                system_id: Option<~str>,
                force_quirks: bool)
             -> Doctype<ScriptView> {
-        Doctype {
+        let dt = Doctype {
             parent: Node::new(DoctypeNodeTypeId),
             name: name,
             public_id: public_id,
             system_id: system_id,
             force_quirks: force_quirks,
-        }
+        };
+        dump_doctype(&dt);
+        dt
     }
 }
 

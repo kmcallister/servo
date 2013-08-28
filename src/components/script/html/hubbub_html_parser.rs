@@ -367,7 +367,7 @@ pub fn parse_html(cx: *JSContext,
             let node = @Doctype::new(name,
                                      public_id,
                                      system_id,
-                                     force_quirks);
+                                     true);
             unsafe {
                 Node::as_abstract_node(cx, node).to_hubbub_node()
             }
