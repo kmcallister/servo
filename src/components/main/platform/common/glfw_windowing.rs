@@ -132,6 +132,7 @@ impl WindowMethods<Application> for Window {
         if !self.event_queue.is_empty() {
             return self.event_queue.shift()
         }
+        self.glfw_window.poll_events();
         glfw::poll_events();
         self.throbber_frame = (self.throbber_frame + 1) % (THROBBER.len() as u8);
         self.update_window_title();
