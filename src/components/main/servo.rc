@@ -179,14 +179,18 @@ fn run(opts: Opts, app: &Application) {
             constellation_chan.send(InitLoadUrlMsg(make_url(filename.clone(), None)))
         }
 
-        // Wait for the compositor to shut down.
-        shutdown_port.recv();
+        // Wait for the compositor to tell us to shut down.
+        let finish_shutdown_chan: Chan<()> = shutdown_port.recv();
 
         // Shut the constellation down.
-        debug!("master: Shut down");
+        debug!("master: Shutting down constellation");
         let (exit_response_from_constellation, exit_chan) = comm::stream();
         constellation_chan.send(ExitMsg(exit_chan));
         exit_response_from_constellation.recv();
+
+        // Tell the compositor that the constellation is finished.
+        debug!("master: Constellation finished; signaling to compositor");
+        finish_shutdown_chan.send(());
     }
 
 

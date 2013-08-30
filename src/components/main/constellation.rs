@@ -354,6 +354,7 @@ impl Constellation {
     }
 
     fn handle_exit(&self, sender: Chan<()>) {
+        debug!("constellation exiting");
         for (_id, ref pipeline) in self.pipelines.iter() {
             pipeline.exit();
         }
