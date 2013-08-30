@@ -17,7 +17,10 @@ use geom::rect::Rect;
 use opts::Opts;
 use render_context::RenderContext;
 
+use std::task;
+use std::task::TaskResult;
 use std::cell::Cell;
+use std::comm;
 use std::comm::{Chan, Port, SharedChan};
 use extra::arc::Arc;
 
@@ -38,7 +41,10 @@ pub enum Msg<T> {
     UnusedBufferMsg(~[~LayerBuffer]),
     PaintPermissionGranted,
     PaintPermissionRevoked,
-    ExitMsg(Chan<()>),
+
+    /// Request exit.  Sends back a port so the original sender can wait until
+    /// the task is totally finished with all cleanup.
+    ExitMsg(Chan<Port<TaskResult>>),
 }
 
 /// A request from the compositor to the renderer for tiles that need to be (re)displayed.
@@ -77,6 +83,7 @@ impl<T> RenderChan<T> {
 struct RenderTask<C,T> {
     id: PipelineId,
     port: Port<Msg<T>>,
+    task_exit_port: Cell<Port<TaskResult>>,
     compositor: C,
     font_ctx: @mut FontContext,
     opts: Opts,
@@ -109,7 +116,12 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
         let port = Cell::new(port);
         let profiler_chan = Cell::new(profiler_chan);
 
-        do spawn {
+        let (task_exit_port, task_exit_chan) = comm::stream();
+        let mut task_builder = task::task();
+        task_builder.opts.notify_chan = Some(task_exit_chan);
+        let task_exit_port_cell = Cell::new(task_exit_port);
+
+        do task_builder.spawn {
             let compositor = compositor.take();
             let share_gl_context = compositor.get_gl_context();
             let opts = opts.take();
@@ -119,6 +131,7 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
             let mut render_task = RenderTask {
                 id: id,
                 port: port.take(),
+                task_exit_port: Cell::new(task_exit_port_cell.take()), // ugh
                 compositor: compositor,
                 font_ctx: @mut FontContext::new(opts.render_backend.clone(),
                                                 false,
@@ -188,7 +201,7 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
                     self.paint_permission = false;
                 }
                 ExitMsg(response_ch) => {
-                    response_ch.send(());
+                    response_ch.send(self.task_exit_port.take());
                     break;
                 }
             }

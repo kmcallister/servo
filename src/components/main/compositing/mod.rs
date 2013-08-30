@@ -189,14 +189,14 @@ pub struct CompositorTask {
     opts: Opts,
     port: Port<Msg>,
     profiler_chan: ProfilerChan,
-    shutdown_chan: SharedChan<()>,
+    shutdown_chan: SharedChan<Chan<()>>,
 }
 
 impl CompositorTask {
     pub fn new(opts: Opts,
                port: Port<Msg>,
                profiler_chan: ProfilerChan,
-               shutdown_chan: Chan<()>)
+               shutdown_chan: Chan<Chan<()>>)
                -> CompositorTask {
         CompositorTask {
             opts: opts,
@@ -208,6 +208,11 @@ impl CompositorTask {
 
     /// Starts the compositor, which listens for messages on the specified port. 
     pub fn run(&self) {
+        use std::rt::task::Task;
+        use std::rt::local::Local;
+        use std::borrow;
+        use std::cast;
+
         let app: Application = ApplicationMethods::new();
         let window: @mut Window = WindowMethods::new(&app);
 
@@ -544,6 +549,20 @@ impl CompositorTask {
 
         }
 
-        self.shutdown_chan.send(())
+        unsafe { cast::forget(app); }
+
+        let me = Local::borrow(|t: &mut Task| borrow::to_uint(t));
+        debug!("compositor shutting down, i am %?", me);
+
+        // Tell the constellation it's time to shut down.
+        let (finish_shutdown_port, finish_shutdown_chan) = comm::stream();
+        debug!("compositor signaling shutdown");
+        self.shutdown_chan.send(finish_shutdown_chan);
+
+        // Wait until the constellation is finished and then shut down.
+        // This keeps graphics state alive through cleanup of various
+        // data structures, preventing a crash. (#822)
+        finish_shutdown_port.recv();
+        debug!("compositor exiting");
     }
 }
