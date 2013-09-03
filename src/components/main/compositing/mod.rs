@@ -5,7 +5,7 @@
 use platform::{Application, Window};
 
 pub use windowing;
-use windowing::{ApplicationMethods, WindowEvent, WindowMethods};
+use windowing::{WindowEvent, WindowMethods};
 use windowing::{IdleWindowEvent, ResizeWindowEvent, LoadUrlWindowEvent, MouseWindowEventClass};
 use windowing::{ScrollWindowEvent, ZoomWindowEvent, NavigationWindowEvent, FinishedWindowEvent};
 use windowing::{QuitWindowEvent, MouseWindowClickEvent, MouseWindowMouseDownEvent, MouseWindowMouseUpEvent};
@@ -207,9 +207,8 @@ impl CompositorTask {
     }
 
     /// Starts the compositor, which listens for messages on the specified port. 
-    pub fn run(&self) {
-        let app: Application = ApplicationMethods::new();
-        let window: @mut Window = WindowMethods::new(&app);
+    pub fn run(&self, app: &Application) {
+        let window: @mut Window = WindowMethods::new(app);
 
         // Create an initial layer tree.
         //

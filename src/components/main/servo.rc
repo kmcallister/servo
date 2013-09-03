@@ -41,6 +41,8 @@ extern mod core_text;
 use compositing::{CompositorChan, CompositorTask};
 use constellation::Constellation;
 use servo_msg::constellation_msg::{ExitMsg, InitLoadUrlMsg};
+use platform::Application;
+use windowing::ApplicationMethods;
 
 #[cfg(not(test))]
 use gfx::opts;
@@ -120,12 +122,20 @@ fn start(argc: int, argv: **u8, crate_map: *u8) -> int {
         }
         opts::from_cmdline_args(args)
     }
+
+    // We store Azure DrawTargets in managed boxes in compositor and renderer
+    // tasks, so we need to preserve all global OpenGL state (represented by
+    // the value of type Application) until those tasks are cleaned up.  The
+    // solution is to create the Application here, outside of the runtime.
+    // Dropping this value calls e.g. glfwTerminate().
+    let app = ApplicationMethods::new();
+
     do std::rt::start_on_main_thread(argc, argv, crate_map) {
-        run(getopts())
+        run(getopts(), &app)
     }
 }
 
-fn run(opts: Opts) {
+fn run(opts: Opts, app: &Application) {
     let (shutdown_port, shutdown_chan) = comm::stream();
     let (profiler_port, profiler_chan) = comm::stream();
     let (compositor_port, compositor_chan) = comm::stream();
@@ -185,6 +195,6 @@ fn run(opts: Opts) {
                                               profiler_chan,
                                               shutdown_chan);
     debug!("preparing to enter main loop");
-    compositor_task.run();
+    compositor_task.run(app);
 }
 
