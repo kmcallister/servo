@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use platform::{Application, Window};
+use platform::Window;
 
 pub use windowing;
-use windowing::{ApplicationMethods, WindowEvent, WindowMethods};
+use windowing::WindowEvent;
 use windowing::{IdleWindowEvent, ResizeWindowEvent, LoadUrlWindowEvent, MouseWindowEventClass};
 use windowing::{ScrollWindowEvent, ZoomWindowEvent, NavigationWindowEvent, FinishedWindowEvent};
 use windowing::{QuitWindowEvent, MouseWindowClickEvent, MouseWindowMouseDownEvent, MouseWindowMouseUpEvent};
@@ -190,33 +190,34 @@ pub struct CompositorTask {
     port: Port<Msg>,
     profiler_chan: ProfilerChan,
     shutdown_chan: SharedChan<()>,
+    window: @mut Window,
 }
 
 impl CompositorTask {
     pub fn new(opts: Opts,
                port: Port<Msg>,
                profiler_chan: ProfilerChan,
-               shutdown_chan: Chan<()>)
+               shutdown_chan: Chan<()>,
+               window: @mut Window)
                -> CompositorTask {
         CompositorTask {
             opts: opts,
             port: port,
             profiler_chan: profiler_chan,
             shutdown_chan: SharedChan::new(shutdown_chan),
+            window: window,
         }
     }
 
     /// Starts the compositor, which listens for messages on the specified port. 
     pub fn run(&self) {
-        let app: Application = ApplicationMethods::new();
-        let window: @mut Window = WindowMethods::new(&app);
-
         // Create an initial layer tree.
         //
         // TODO: There should be no initial layer tree until the renderer creates one from the display
         // list. This is only here because we don't have that logic in the renderer yet.
         let context = rendergl::init_render_context();
         let root_layer = @mut ContainerLayer();
+        let window = self.window;
         let window_size = window.size();
         let mut scene = Scene(ContainerLayerKind(root_layer), window_size, identity());
         let mut window_size = Size2D(window_size.width as uint, window_size.height as uint);
