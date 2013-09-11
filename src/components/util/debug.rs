@@ -6,6 +6,9 @@ use std::io;
 use std::vec::raw::buf_as_slice;
 use std::cast::transmute;
 use std::sys::size_of;
+use extra::arc::Arc;
+use std::unstable::sync::UnsafeArc;
+use std::unstable::atomics;
 
 fn hexdump_slice(buf: &[u8]) {
     let stderr = io::stderr();
@@ -27,5 +30,12 @@ pub fn hexdump<T>(obj: &T) {
         let buf: *u8 = transmute(obj);
         debug!("dumping at %p", buf);
         buf_as_slice(buf, size_of::<T>(), hexdump_slice);
+    }
+}
+
+pub fn arc_refcount<T>(arc: &Arc<T>) -> uint {
+    unsafe {
+        let uarc: &UnsafeArc<T> = transmute(arc);
+        (*uarc.data).count.load(atomics::Relaxed)
     }
 }
