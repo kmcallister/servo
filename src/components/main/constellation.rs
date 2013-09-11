@@ -11,6 +11,7 @@ use std::task;
 use geom::size::Size2D;
 use geom::rect::Rect;
 use gfx::opts::Opts;
+use gfx::render_task::ShutdownToken;
 use pipeline::Pipeline;
 use servo_msg::constellation_msg::{ConstellationChan, ExitMsg, FailureMsg, FrameRectMsg};
 use servo_msg::constellation_msg::{IFrameSandboxState, InitLoadUrlMsg, LoadIframeUrlMsg, LoadUrlMsg};
@@ -42,6 +43,7 @@ pub struct Constellation {
     pending_sizes: HashMap<(PipelineId, SubpageId), Rect<f32>>,
     profiler_chan: ProfilerChan,
     opts: Opts,
+    shutdown_token: ShutdownToken,
 }
 
 /// Stores the Id of the outermost frame's pipeline, along with a vector of children frames
@@ -255,7 +257,8 @@ impl Constellation {
                  opts: &Opts,
                  resource_task: ResourceTask,
                  image_cache_task: ImageCacheTask,
-                 profiler_chan: ProfilerChan)
+                 profiler_chan: ProfilerChan,
+                 shutdown_token: ShutdownToken)
                  -> ConstellationChan {
             
         let opts = Cell::new((*opts).clone());
@@ -269,6 +272,8 @@ impl Constellation {
         let resource_task = Cell::new(resource_task);
         let image_cache_task = Cell::new(image_cache_task);
         let profiler_chan = Cell::new(profiler_chan);
+
+        let shutdown_token = Cell::new(shutdown_token);
 
         do task::spawn {
             let mut constellation = Constellation {
@@ -284,6 +289,7 @@ impl Constellation {
                 pending_sizes: HashMap::new(),
                 profiler_chan: profiler_chan.take(),
                 opts: opts.take(),
+                shutdown_token: shutdown_token.take(),
             };
             constellation.run();
         }
@@ -388,7 +394,8 @@ impl Constellation {
                                              {
                                                 let size = self.compositor_chan.get_size();
                                                 from_value(Size2D(size.width as uint, size.height as uint))
-                                             });
+                                             },
+                                             self.shutdown_token.clone());
         let failure = ~"about:failure";
         let url = make_url(failure, None);
         pipeline.load(url);
@@ -413,7 +420,8 @@ impl Constellation {
                                              {
                                                  let size = self.compositor_chan.get_size();
                                                  from_value(Size2D(size.width as uint, size.height as uint))
-                                             });
+                                             },
+                                             self.shutdown_token.clone());
         if url.path.ends_with(".js") {
             pipeline.script_chan.send(ExecuteMsg(pipeline.id, url));
         } else {
@@ -537,7 +545,8 @@ impl Constellation {
                                   self.profiler_chan.clone(),
                                   self.opts.clone(),
                                   source_pipeline,
-                                  size_future)
+                                  size_future,
+                                  self.shutdown_token.clone())
         } else {
             debug!("Constellation: loading cross-origin iframe at %?", url);
             // Create a new script task if not same-origin url's
@@ -549,7 +558,8 @@ impl Constellation {
                              self.resource_task.clone(),
                              self.profiler_chan.clone(),
                              self.opts.clone(),
-                             size_future)
+                             size_future,
+                             self.shutdown_token.clone())
         };
 
         if url.path.ends_with(".js") {
@@ -607,7 +617,8 @@ impl Constellation {
                                              self.resource_task.clone(),
                                              self.profiler_chan.clone(),
                                              self.opts.clone(),
-                                             size_future);
+                                             size_future,
+                                             self.shutdown_token.clone());
 
         if url.path.ends_with(".js") {
             pipeline.script_chan.send(ExecuteMsg(pipeline.id, url));
