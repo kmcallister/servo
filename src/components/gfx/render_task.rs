@@ -26,6 +26,7 @@ use servo_util::time;
 
 use buffer_map::BufferMap;
 
+pub use azure::azure_hl::ShutdownToken;
 
 pub struct RenderLayer<T> {
     display_list: Arc<DisplayList<T>>,
@@ -86,6 +87,8 @@ struct RenderTask<C,T> {
 
     share_gl_context: AzGLContext,
 
+    shutdown_token: ShutdownToken,
+
     /// The layer to be rendered
     render_layer: Option<RenderLayer<T>>,
     /// Permission to send paint messages to the compositor
@@ -103,11 +106,13 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
                   port: Port<Msg<T>>,
                   compositor: C,
                   opts: Opts,
-                  profiler_chan: ProfilerChan) {
+                  profiler_chan: ProfilerChan,
+                  shutdown_token: ShutdownToken) {
         let compositor = Cell::new(compositor);
         let opts = Cell::new(opts);
         let port = Cell::new(port);
         let profiler_chan = Cell::new(profiler_chan);
+        let shutdown_token = Cell::new(shutdown_token);
 
         do spawn {
             let compositor = compositor.take();
@@ -126,6 +131,7 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
                 opts: opts,
                 profiler_chan: profiler_chan,
                 share_gl_context: share_gl_context,
+                shutdown_token: shutdown_token.take(),
                 render_layer: None,
 
                 paint_permission: false,
@@ -228,7 +234,8 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
                             draw_target: DrawTarget::new_with_fbo(self.opts.render_backend,
                                                                   self.share_gl_context,
                                                                   Size2D(width as i32, height as i32),
-                                                                  B8G8R8A8),
+                                                                  B8G8R8A8,
+                                                                  self.shutdown_token.clone()),
                             rect: tile.page_rect,
                             screen_pos: tile.screen_rect,
                             resolution: scale,
