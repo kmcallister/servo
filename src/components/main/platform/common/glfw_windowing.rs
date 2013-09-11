@@ -32,9 +32,15 @@ impl ApplicationMethods for Application {
     }
 }
 
+impl Application {
+    /// Shutdown GLFW very late in program exit, after all Rust tasks have finished.
+    pub fn global_shutdown() {
+        glfw::terminate();
+    }
+}
+
 impl Drop for Application {
     fn drop(&self) {
-        glfw::terminate();
         drop_local_window();
     }
 }

@@ -39,6 +39,12 @@ impl Drop for Application {
     }
 }
 
+impl Application {
+    /// Not needed for GLUT.
+    pub fn global_shutdown() {
+    }
+}
+
 /// The type of a window.
 pub struct Window {
     glut_window: glut::Window,

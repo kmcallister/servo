@@ -26,6 +26,12 @@ impl ApplicationMethods for Application {
     }
 }
 
+impl Application {
+    /// Not needed for shared OpenGL.
+    pub fn global_shutdown() {
+    }
+}
+
 /// The type of a window.
 pub struct Window(Context);
 
@@ -56,4 +62,3 @@ impl WindowingMethods<Application> for Window {
     /// Returns the next event.
     pub fn check_loop(@mut self) -> bool { false }
 }
-

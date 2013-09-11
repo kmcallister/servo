@@ -28,6 +28,8 @@ use font_context::FontContext;
 use opts::Opts;
 use render_context::RenderContext;
 
+pub use azure::azure_hl::ShutdownToken;
+
 pub struct RenderLayer<T> {
     display_list: Arc<DisplayList<T>>,
     size: Size2D<uint>
@@ -100,6 +102,8 @@ struct RenderTask<C,T> {
     /// The graphics context to use.
     graphics_context: GraphicsContext,
 
+    shutdown_token: ShutdownToken,
+
     /// The layer to be rendered
     render_layer: Option<RenderLayer<T>>,
     /// Permission to send paint messages to the compositor
@@ -117,11 +121,13 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
                   port: Port<Msg<T>>,
                   compositor: C,
                   opts: Opts,
-                  profiler_chan: ProfilerChan) {
+                  profiler_chan: ProfilerChan,
+                  shutdown_token: ShutdownToken) {
         let compositor = Cell::new(compositor);
         let opts = Cell::new(opts);
         let port = Cell::new(port);
         let profiler_chan = Cell::new(profiler_chan);
+        let shutdown_token = Cell::new(shutdown_token);
 
         do spawn {
             let compositor = compositor.take();
@@ -147,6 +153,7 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
                     GpuGraphicsContext(share_gl_context)
                 },
 
+                shutdown_token: shutdown_token.take(),
                 render_layer: None,
 
                 paint_permission: false,
@@ -247,7 +254,8 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
                             DrawTarget::new_with_fbo(self.opts.render_backend,
                                                      share_gl_context,
                                                      size,
-                                                     B8G8R8A8)
+                                                     B8G8R8A8,
+                                                     self.shutdown_token.clone())
                         }
                     };
 

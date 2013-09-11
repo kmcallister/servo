@@ -4,7 +4,7 @@
 
 use extra::url::Url;
 use compositing::CompositorChan;
-use gfx::render_task::{RenderChan, RenderTask};
+use gfx::render_task::{RenderChan, RenderTask, ShutdownToken};
 use gfx::render_task::{PaintPermissionGranted, PaintPermissionRevoked};
 use gfx::render_task;
 use gfx::opts::Opts;
@@ -46,7 +46,8 @@ impl Pipeline {
                        profiler_chan: ProfilerChan,
                        opts: Opts,
                        script_pipeline: &Pipeline,
-                       size_future: Future<Size2D<uint>>) -> Pipeline {
+                       size_future: Future<Size2D<uint>>,
+                       shutdown_token: ShutdownToken) -> Pipeline {
         
         let (layout_port, layout_chan) = special_stream!(LayoutChan);
         let (render_port, render_chan) = special_stream!(RenderChan);
@@ -55,7 +56,8 @@ impl Pipeline {
                            render_port,
                            compositor_chan.clone(),
                            opts.clone(),
-                           profiler_chan.clone());
+                           profiler_chan.clone(),
+                           shutdown_token);
 
         LayoutTask::create(id,
                            layout_port,
@@ -91,7 +93,8 @@ impl Pipeline {
                   resource_task: ResourceTask,
                   profiler_chan: ProfilerChan,
                   opts: Opts,
-                  size: Future<Size2D<uint>>) -> Pipeline {
+                  size: Future<Size2D<uint>>,
+                  shutdown_token: ShutdownToken) -> Pipeline {
 
         let (script_port, script_chan) = special_stream!(ScriptChan);
         let (layout_port, layout_chan) = special_stream!(LayoutChan);
@@ -137,7 +140,8 @@ impl Pipeline {
                                render_port,
                                compositor_chan.clone(),
                                opts.clone(),
-                               profiler_chan.clone());
+                               profiler_chan.clone(),
+                               shutdown_token.clone());
 
             LayoutTask::create(id,
                                layout_port,
