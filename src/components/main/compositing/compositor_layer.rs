@@ -17,6 +17,7 @@ use compositing::quadtree::{Quadtree, Normal, Invalid, Hidden};
 use layers::layers::{ContainerLayerKind, ContainerLayer, TextureLayerKind, TextureLayer, TextureManager};
 use pipeline::Pipeline;
 use constellation::{SendableChildFrameTree, SendableFrameTree};
+use azure::azure_hl::DrawTarget;
 
 /// The CompositorLayer represents an element on a page that has a unique scroll
 /// or animation behavior. This can include absolute positioned elements, iframes, etc.
@@ -40,7 +41,7 @@ pub struct CompositorLayer {
     quadtree: MaybeQuadtree,
     /// The root layer of this CompositorLayer's layer tree. Buffers are collected
     /// from the quadtree and inserted here when the layer is painted to the screen.
-    root_layer: @mut ContainerLayer,
+    root_layer: ~ContainerLayer,
     /// When set to true, this layer is ignored by its parents. This is useful for
     /// soft deletion or when waiting on a page size.
     hidden: bool,
@@ -57,7 +58,7 @@ struct CompositorLayerChild {
     child: ~CompositorLayer, 
     /// A ContainerLayer managed by the parent node. This deals with clipping and
     /// positioning, and is added above the child's layer tree.
-    container: @mut ContainerLayer,
+    container: ~ContainerLayer,
 }
 
 /// Helper enum for storing quadtrees. Either contains a quadtree, or contains
@@ -94,7 +95,7 @@ impl CompositorLayer {
                                                       tile_size,
                                                       max_mem)),
             },
-            root_layer: @mut ContainerLayer(),
+            root_layer: ~ContainerLayer(),
             hidden: true,
             epoch: Epoch(0),
             scroll_behavior: Scroll,
@@ -109,7 +110,7 @@ impl CompositorLayer {
         let mut layer = CompositorLayer::new(pipeline, None, tile_size, max_mem);
         layer.children = (do children.move_iter().map |child| {
             let SendableChildFrameTree { frame_tree, rect } = child;
-            let container = @mut ContainerLayer();
+            let mut container = ~ContainerLayer();
             match rect {
                 Some(rect) => {
                      container.scissor = Some(rect);
@@ -383,16 +384,7 @@ impl CompositorLayer {
     // are not rebuilt directly from this method.
     pub fn build_layer_tree(&mut self) {
         // Iterate over the children of the container layer.
-        let mut current_layer_child = self.root_layer.first_child;
-        
-        // Delete old layer.
-        while current_layer_child.is_some() {
-            let trash = current_layer_child.unwrap();
-            do current_layer_child.unwrap().with_common |common| {
-                current_layer_child = common.next_sibling;
-            }
-            self.root_layer.remove_child(trash);
-        }
+        self.root_layer.children.clear();
 
         // Add new tiles.
         let quadtree = match self.quadtree {
@@ -406,52 +398,20 @@ impl CompositorLayer {
             debug!("osmain: compositing buffer rect %?", &buffer.rect);
             
             // Find or create a texture layer.
-            let texture_layer;
-            current_layer_child = match current_layer_child {
-                None => {
-                    debug!("osmain: adding new texture layer");
-                    texture_layer = @mut TextureLayer::new(@buffer.draw_target.clone() as @TextureManager,
-                                                           buffer.screen_pos.size);
-                    self.root_layer.add_child_end(TextureLayerKind(texture_layer));
-                    None
-                }
-                Some(TextureLayerKind(existing_texture_layer)) => {
-                    texture_layer = existing_texture_layer;
-                    texture_layer.manager = @buffer.draw_target.clone() as @TextureManager;
-                    
-                    // Move on to the next sibling.
-                    do current_layer_child.unwrap().with_common |common| {
-                        common.next_sibling
-                    }
-                }
-                Some(_) => fail!(~"found unexpected layer kind"),
-            };
-            
-
+            let texture_layer = TextureLayer::new(@buffer.draw_target.clone() as @TextureManager,
+                                                  buffer.screen_pos.size);
             let rect = buffer.rect;
             // Set the layer's transform.
             let transform = identity().translate(rect.origin.x, rect.origin.y, 0.0);
             let transform = transform.scale(rect.size.width, rect.size.height, 1.0);
             texture_layer.common.set_transform(transform);
+            self.root_layer.add_child_end(TextureLayerKind(texture_layer));
         }
 
         // Add child layers.
         for child in self.children.mut_iter().filter(|x| !x.child.hidden) {
-            current_layer_child = match current_layer_child {
-                None => {
-                    child.container.common.parent = None;
-                    child.container.common.prev_sibling = None;
-                    child.container.common.next_sibling = None;
-                    self.root_layer.add_child_end(ContainerLayerKind(child.container));
-                    None
-                }
-                Some(_) => {
-                    fail!("CompositorLayer: Layer tree failed to delete");
-                }
-            };
+            self.root_layer.add_child_end(ContainerLayerKind(child.container));
         }
-
-
     }
     
     // Add LayerBuffers to the specified layer. Returns false if the layer is not found.
@@ -544,7 +504,7 @@ impl CompositorLayer {
     // Adds a child.
     pub fn add_child(&mut self, pipeline: Pipeline, page_size: Option<Size2D<f32>>, tile_size: uint,
                      max_mem: Option<uint>, clipping_rect: Rect<f32>) {
-        let container = @mut ContainerLayer();
+        let container = ~ContainerLayer();
         container.scissor = Some(clipping_rect);
         container.common.set_transform(identity().translate(clipping_rect.origin.x,
                                                             clipping_rect.origin.y,
