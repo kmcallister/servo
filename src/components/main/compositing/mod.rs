@@ -43,6 +43,7 @@ use extra::time::precise_time_s;
 
 use constellation::SendableFrameTree;
 use compositing::compositor_layer::CompositorLayer;
+use compositing::compositor_layer::dump_layer_tree;
 
 mod quadtree;
 mod compositor_layer;
@@ -270,6 +271,7 @@ impl CompositorTask {
                                                                      Some(10000000u));
                         root_layer.add_child_start(ContainerLayerKind(layer.root_layer));
                         compositor_layer = Some(layer);
+                        dump_layer_tree(compositor_layer.get_ref());
 
                         constellation_chan = Some(new_constellation_chan);
                     }

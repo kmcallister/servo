@@ -15,6 +15,7 @@ use script::script_task::SendEventMsg;
 use windowing::{MouseWindowEvent, MouseWindowClickEvent, MouseWindowMouseDownEvent, MouseWindowMouseUpEvent};
 use compositing::quadtree::{Quadtree, Normal, Invalid, Hidden};
 use layers::layers::{ContainerLayerKind, ContainerLayer, TextureLayerKind, TextureLayer, TextureManager};
+use layers::layers::{Layer, CommonLayer};
 use pipeline::Pipeline;
 use constellation::{SendableChildFrameTree, SendableFrameTree};
 
@@ -577,4 +578,67 @@ impl CompositorLayer {
             child.child.set_occlusions();
         }
     }
+}
+
+fn dump_layer(node: &Layer, write: &fn(&str)) {
+    use std::borrow::to_uint;
+    let me = node.with_common(|r| to_uint(&*r));
+
+    match *node {
+        ContainerLayerKind(cl) => {
+            dump_containerlayer(cl, write);
+        }
+        _ => {
+            write(fmt!("node_%u [shape=octagon, label=\"leaf Layer\"];\n", me));
+        }
+    }
+}
+
+fn dump_containerlayer(node: &ContainerLayer, write: &fn(&str)) {
+    use std::borrow::to_uint;
+    let me = to_uint(&node.common);
+    write(fmt!("node_%u [shape=box, label=\"ContainerLayer\"];\n", me));
+
+    for child in node.children() {
+        let child_id = child.with_common(|r| to_uint(&*r));
+        debug!("i'm %u, visiting %u", me, child_id);
+        write(fmt!("node_%u -> node_%u; // b\n", me, child_id));
+        dump_layer(&child, |x| write(x));
+    }
+}
+
+fn dump_compositorlayer(node: &CompositorLayer, write: &fn(&str)) {
+    use std::borrow::to_uint;
+
+    let me = to_uint(node);
+    write(fmt!("node_%u [shape=ellipse, label=\"CompositorLayer\"];\n", me));
+
+    let container: &ContainerLayer = &*node.root_layer;
+    write(fmt!("node_%u -> node_%u; // c\n", me, to_uint(&container.common)));
+    dump_containerlayer(container, |x| write(x));
+
+    for child in node.children.iter() {
+        let inner_child: &CompositorLayer = &*child.child;
+        let child_id = to_uint(inner_child);
+        write(fmt!("node_%u -> node_%u; // d\n", me, child_id));
+        dump_compositorlayer(inner_child, |x| write(x));
+
+        let contref: &ContainerLayer = &*child.container;
+        let commref: &CommonLayer = &contref.common;
+        write(fmt!("node_%u -> node_%u [style=dotted];\n", child_id, to_uint(commref)));
+        dump_containerlayer(contref, |x| write(x));
+    }
+}
+
+pub fn dump_layer_tree(root: &CompositorLayer) {
+    use std::rt::io;
+    use std::rt::io::file;
+    use std::rt::io::Writer;
+    let filename = "layertree.dot";
+    let mut writer = file::open(&filename, io::CreateOrTruncate, io::Write).unwrap();
+    let write = |s: &str| writer.write(s.as_bytes());
+
+    write("digraph {\n");
+    dump_compositorlayer(root, |x| write(x));
+    write("}\n");
 }
