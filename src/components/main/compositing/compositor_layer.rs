@@ -31,11 +31,13 @@ pub struct CompositorLayer {
     /// The offset of the page due to scrolling. (0,0) is when the window sees the
     /// top left corner of the page.
     scroll_offset: Point2D<f32>,
-    /// This layer's children. These could be iframes or any element which
-    /// differs in scroll behavior from its parent. Each is associated with a
-    /// ContainerLayer which determines its position relative to its parent and
-    /// clipping rect. Children are stored in the order in which they are drawn.
-    children: ~[CompositorLayerChild],
+    /// This layer's children. These could be iframes or any element which differs in
+    /// scroll behavior from its parent. Children are stored in the order in which they
+    /// are drawn.
+    children: ~[~CompositorLayer],
+    /// Each non-root layer is associated with a ContainerLayer which determines its
+    /// position relative to its parent and clipping rect.
+    container: Option<@mut ContainerLayer>,
     /// This layer's quadtree. This is where all buffers are stored for this layer.
     quadtree: MaybeQuadtree,
     /// The root layer of this CompositorLayer's layer tree. Buffers are collected
@@ -49,15 +51,6 @@ pub struct CompositorLayer {
     epoch: Epoch,
     /// The behavior of this layer when a scroll message is received. 
     scroll_behavior: ScrollBehavior,
-}
-
-/// Helper struct for keeping CompositorLayer children organized.
-struct CompositorLayerChild {
-    /// The child itself.
-    child: ~CompositorLayer, 
-    /// A ContainerLayer managed by the parent node. This deals with clipping and
-    /// positioning, and is added above the child's layer tree.
-    container: @mut ContainerLayer,
 }
 
 /// Helper enum for storing quadtrees. Either contains a quadtree, or contains
@@ -87,6 +80,7 @@ impl CompositorLayer {
             page_size: page_size,
             scroll_offset: Point2D(0f32, 0f32),
             children: ~[],
+            container: None,
             quadtree: match page_size {
                 None => NoTree(tile_size, max_mem),
                 Some(page_size) => Tree(Quadtree::new(page_size.width as uint,
@@ -121,13 +115,10 @@ impl CompositorLayer {
                 None => {}
             }
             
-            let child_layer = ~CompositorLayer::from_frame_tree(frame_tree, tile_size, max_mem);
+            let mut child_layer = ~CompositorLayer::from_frame_tree(frame_tree, tile_size, max_mem);
             container.add_child_start(ContainerLayerKind(child_layer.root_layer));
-            
-            CompositorLayerChild {
-                child: child_layer,
-                container: container,
-            }
+            child_layer.container = Some(container);
+            child_layer
         }).collect();
         layer.set_occlusions();
         layer
@@ -139,15 +130,15 @@ impl CompositorLayer {
     // true; otherwise returns false, so a parent layer can scroll instead.
     pub fn scroll(&mut self, delta: Point2D<f32>, cursor: Point2D<f32>, window_size: Size2D<f32>) -> bool {
         let cursor = cursor - self.scroll_offset;
-        for child in self.children.mut_iter().filter(|x| !x.child.hidden) {
-            match child.container.scissor {
+        for child in self.children.mut_iter().filter(|x| !x.hidden) {
+            match child.container.get_ref().scissor {
                 None => {
                     error!("CompositorLayer: unable to perform cursor hit test for layer");
                 }
                 Some(rect) => {
                     if cursor.x >= rect.origin.x && cursor.x < rect.origin.x + rect.size.width
                         && cursor.y >= rect.origin.y && cursor.y < rect.origin.y + rect.size.height
-                        && child.child.scroll(delta, cursor - rect.origin, rect.size) {
+                        && child.scroll(delta, cursor - rect.origin, rect.size) {
                         return true;
                     }
                 }
@@ -190,15 +181,15 @@ impl CompositorLayer {
     // page coordinates.
     pub fn send_mouse_event(&self, event: MouseWindowEvent, cursor: Point2D<f32>) {
         let cursor = cursor - self.scroll_offset;
-        for child in self.children.iter().filter(|&x| !x.child.hidden) {
-            match child.container.scissor {
+        for child in self.children.iter().filter(|&x| !x.hidden) {
+            match child.container.get_ref().scissor {
                 None => {
                     error!("CompositorLayer: unable to perform cursor hit test for layer");
                 }
                 Some(rect) => {
                     if cursor.x >= rect.origin.x && cursor.x < rect.origin.x + rect.size.width
                         && cursor.y >= rect.origin.y && cursor.y < rect.origin.y + rect.size.height {
-                        child.child.send_mouse_event(event, cursor - rect.origin);
+                        child.send_mouse_event(event, cursor - rect.origin);
                         return;
                     }
                 }
@@ -241,13 +232,13 @@ impl CompositorLayer {
         if redisplay {
             self.build_layer_tree();
         }
-        let transform = |x: &mut CompositorLayerChild| -> bool {
-            match x.container.scissor {
+        let transform = |x: &mut ~CompositorLayer| -> bool {
+            match (*x).container.get_ref().scissor {
                 Some(scissor) => {
                     let new_rect = window_rect.intersection(&scissor);
                     match new_rect {
                         Some(new_rect) => {
-                            x.child.get_buffer_request(new_rect, scale)
+                            (*x).get_buffer_request(new_rect, scale)
                         }
                         None => {
                             false //Layer is offscreen
@@ -259,7 +250,7 @@ impl CompositorLayer {
                 }
             }
         };
-        self.children.mut_iter().filter(|x| !x.child.hidden)
+        self.children.mut_iter().filter(|x| !x.hidden)
             .map(transform)
             .fold(false, |a, b| a || b) || redisplay
     }
@@ -270,10 +261,10 @@ impl CompositorLayer {
     // If the layer is hidden and has a defined page size, unhide it.
     // This method returns false if the specified layer is not found.
     pub fn set_clipping_rect(&mut self, pipeline_id: PipelineId, new_rect: Rect<f32>) -> bool {
-        match self.children.iter().position(|x| pipeline_id == x.child.pipeline.id) {
+        match self.children.iter().position(|x| pipeline_id == x.pipeline.id) {
             Some(i) => {
                 let child_node = &mut self.children[i];
-                let con = child_node.container;
+                let con = child_node.container.get_ref();
                 con.common.set_transform(identity().translate(new_rect.origin.x,
                                                               new_rect.origin.y,
                                                               0.0));
@@ -292,15 +283,15 @@ impl CompositorLayer {
                     }
                 }
                 // If possible, unhide child
-                if child_node.child.hidden && child_node.child.page_size.is_some() {
-                    child_node.child.hidden = false;
+                if child_node.hidden && child_node.page_size.is_some() {
+                    child_node.hidden = false;
                 }
                 true
             }
             None => {
                 // ID does not match any of our immediate children, so recurse on 
                 // descendents (including hidden children)
-                self.children.mut_iter().map(|x| &mut x.child).any(|x| x.set_clipping_rect(pipeline_id, new_rect))
+                self.children.mut_iter().any(|x| x.set_clipping_rect(pipeline_id, new_rect))
             }
         }
     }
@@ -338,10 +329,9 @@ impl CompositorLayer {
     
     // A helper method to resize sublayers.
     fn resize_helper(&mut self, pipeline_id: PipelineId, new_size: Size2D<f32>, epoch: Epoch) -> bool {
-        let found = match self.children.iter().position(|x| pipeline_id == x.child.pipeline.id) {
+        let found = match self.children.iter().position(|x| pipeline_id == x.pipeline.id) {
             Some(i) => {
-                let child_node = &mut self.children[i];
-                let child = &mut child_node.child;
+                let child = &mut self.children[i];
                 child.epoch = epoch;
                 child.page_size = Some(new_size);
                 match child.quadtree {
@@ -356,7 +346,7 @@ impl CompositorLayer {
                                                             max_mem));
                     }
                 }
-                match child_node.container.scissor {
+                match child.container.get_ref().scissor {
                     Some(scissor) => {
                         // Call scroll for bounds checking if the page shrunk. Use (-1, -1) as the cursor position
                         // to make sure the scroll isn't propagated downwards.
@@ -375,7 +365,7 @@ impl CompositorLayer {
             true
         } else {
             // ID does not match ours, so recurse on descendents (including hidden children)
-            self.children.mut_iter().map(|x| &mut x.child).any(|x| x.resize_helper(pipeline_id, new_size, epoch))
+            self.children.mut_iter().any(|x| x.resize_helper(pipeline_id, new_size, epoch))
         }
     }
 
@@ -436,13 +426,14 @@ impl CompositorLayer {
         }
 
         // Add child layers.
-        for child in self.children.mut_iter().filter(|x| !x.child.hidden) {
+        for child in self.children.mut_iter().filter(|x| !x.hidden) {
             current_layer_child = match current_layer_child {
                 None => {
-                    child.container.common.parent = None;
-                    child.container.common.prev_sibling = None;
-                    child.container.common.next_sibling = None;
-                    self.root_layer.add_child_end(ContainerLayerKind(child.container));
+                    let container = child.container.get_mut_ref();
+                    container.common.parent = None;
+                    container.common.prev_sibling = None;
+                    container.common.next_sibling = None;
+                    self.root_layer.add_child_end(ContainerLayerKind(*container));
                     None
                 }
                 Some(_) => {
@@ -485,7 +476,7 @@ impl CompositorLayer {
             true
         } else { 
                 // ID does not match ours, so recurse on descendents (including hidden children).
-                self.children.mut_iter().map(|x| &mut x.child)
+                self.children.mut_iter()
                     .any(|x| {
                                 let buffers = cell.take();
                                 let result = x.add_buffers(pipeline_id, buffers.clone(), epoch);
@@ -497,13 +488,13 @@ impl CompositorLayer {
 
     // Deletes a specified sublayer, including hidden children. Returns false if the layer is not found.
     pub fn delete(&mut self, pipeline_id: PipelineId) -> bool {
-        match self.children.iter().position(|x| x.child.pipeline.id == pipeline_id) {
+        match self.children.iter().position(|x| x.pipeline.id == pipeline_id) {
             Some(i) => {
                 let mut child = self.children.remove(i);
                 match self.quadtree {
                     NoTree(*) => {} // Nothing to do
                     Tree(ref mut quadtree) => {
-                        match child.container.scissor {
+                        match child.container.get_ref().scissor {
                             Some(rect) => {
                                 quadtree.set_status_page(rect, Normal, false); // Unhide this rect
                             }
@@ -511,18 +502,18 @@ impl CompositorLayer {
                         }
                     }
                 }
-                match child.child.quadtree {
+                match child.quadtree {
                     NoTree(*) => {} // Nothing to do
                     Tree(ref mut quadtree) => {
                         // Send back all tiles to renderer.
-                        child.child.pipeline.render_chan.send(UnusedBufferMsg(quadtree.collect_tiles()));
+                        child.pipeline.render_chan.send(UnusedBufferMsg(quadtree.collect_tiles()));
                     }
                 }
                 self.build_layer_tree();
                 true
             }
             None => {
-                self.children.mut_iter().map(|x| &mut x.child).any(|x| x.delete(pipeline_id))
+                self.children.mut_iter().any(|x| x.delete(pipeline_id))
             }
         }
     }
@@ -537,7 +528,7 @@ impl CompositorLayer {
             true
         } else {
             // ID does not match ours, so recurse on descendents (including hidden children).
-            self.children.mut_iter().map(|x| &mut x.child).any(|x| x.invalidate_rect(pipeline_id, rect))
+            self.children.mut_iter().any(|x| x.invalidate_rect(pipeline_id, rect))
         }
     }
     
@@ -549,12 +540,10 @@ impl CompositorLayer {
         container.common.set_transform(identity().translate(clipping_rect.origin.x,
                                                             clipping_rect.origin.y,
                                                             0.0));
-        let child = ~CompositorLayer::new(pipeline, page_size, tile_size, max_mem);
+        let mut child = ~CompositorLayer::new(pipeline, page_size, tile_size, max_mem);
         container.add_child_start(ContainerLayerKind(child.root_layer));
-        self.children.push(CompositorLayerChild {
-            child: child,
-            container: container,
-        });
+        child.container = Some(container);
+        self.children.push(child);
         self.set_occlusions();
     }
 
@@ -565,16 +554,16 @@ impl CompositorLayer {
             NoTree(*) => return, // Cannot calculate occlusions
             Tree(ref mut quadtree) => quadtree,
         };
-        for child in self.children.iter().filter(|x| !x.child.hidden) {
-            match child.container.scissor {
+        for child in self.children.iter().filter(|x| !x.hidden) {
+            match child.container.get_ref().scissor {
                 None => {} // Nothing to do
                 Some(rect) => {
                     quadtree.set_status_page(rect, Hidden, false);
                 }
             }
         }
-        for child in self.children.mut_iter().filter(|x| !x.child.hidden) {
-            child.child.set_occlusions();
+        for child in self.children.mut_iter().filter(|x| !x.hidden) {
+            child.set_occlusions();
         }
     }
 }
