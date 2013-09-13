@@ -216,7 +216,7 @@ impl CompositorTask {
         // TODO: There should be no initial layer tree until the renderer creates one from the display
         // list. This is only here because we don't have that logic in the renderer yet.
         let context = rendergl::init_render_context();
-        let root_layer = @mut ContainerLayer();
+        let root_layer = ~ContainerLayer();
         let window_size = window.size();
         let mut scene = Scene(ContainerLayerKind(root_layer), window_size, identity());
         let mut window_size = Size2D(window_size.width as uint, window_size.height as uint);
@@ -259,10 +259,7 @@ impl CompositorTask {
                         response_chan.send(());
 
                         // This assumes there is at most one child, which should be the case.
-                        match root_layer.first_child {
-                            Some(old_layer) => root_layer.remove_child(old_layer),
-                            None => {}
-                        }
+                        root_layer.remove_child_start();
 
                         let layer = CompositorLayer::from_frame_tree(frame_tree,
                                                                      self.opts.tile_size,
@@ -292,12 +289,8 @@ impl CompositorTask {
                         let new_layer = CompositorLayer::new(p, Some(page_size),
                                                              self.opts.tile_size, Some(10000000u));
                         
-                        let current_child = root_layer.first_child;
                         // This assumes there is at most one child, which should be the case.
-                        match current_child {
-                            Some(old_layer) => root_layer.remove_child(old_layer),
-                            None => {}
-                        }
+                        root_layer.remove_child_start();
                         root_layer.add_child_start(ContainerLayerKind(new_layer.root_layer));
                         compositor_layer = Some(new_layer);
 
