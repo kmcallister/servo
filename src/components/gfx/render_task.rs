@@ -4,12 +4,14 @@
 
 // The task that handles all rendering/painting.
 
-use azure::azure_hl::{B8G8R8A8, DrawTarget};
+use azure::azure_hl::{B8G8R8A8, DrawTarget, GLContext};
+use azure::azure_hl;
 use azure::{AzFloat, AzGLContext};
 use geom::matrix2d::Matrix2D;
 use geom::rect::Rect;
 use geom::size::Size2D;
-use layers::texturegl::Texture;
+use layers::layers::ARGB32Format;
+use layers::texturegl::{Texture, TextureImageData};
 use servo_msg::compositor_msg::{LayerBufferSet, Epoch};
 use servo_msg::compositor_msg::{RenderListener, IdleRenderState, RenderingRenderState, LayerBuffer};
 use servo_msg::constellation_msg::PipelineId;
@@ -73,6 +75,18 @@ impl<T> RenderChan<T> {
     }
 }
 
+// This is subtle. Depending on whether we're doing CPU rendering or not, this stores two different
+// values:
+//
+// * In CPU rendering mode, this will be a `GLContext` that is safe to use on this thread.
+//
+// * In GPU rendering mode, this will be an `AzGLContext` that is *not* safe to use on this thread.
+//   Instead draw targets must be created from it and then rendered into.
+enum GraphicsContext {
+    CpuGraphicsContext(GLContext),
+    GpuGraphicsContext(AzGLContext),
+}
+
 struct RenderTask<C,T> {
     id: PipelineId,
     port: Port<Msg<T>>,
@@ -83,7 +97,8 @@ struct RenderTask<C,T> {
     /// A channel to the profiler.
     profiler_chan: ProfilerChan,
 
-    share_gl_context: AzGLContext,
+    /// The graphics context to use.
+    graphics_context: GraphicsContext,
 
     /// The layer to be rendered
     render_layer: Option<RenderLayer<T>>,
@@ -113,6 +128,7 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
             let share_gl_context = compositor.get_gl_context();
             let opts = opts.take();
             let profiler_chan = profiler_chan.take();
+            let cpu_painting = opts.cpu_painting;
 
             // FIXME: rust/#5967
             let mut render_task = RenderTask {
@@ -124,7 +140,13 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
                                                 profiler_chan.clone()),
                 opts: opts,
                 profiler_chan: profiler_chan,
-                share_gl_context: share_gl_context,
+
+                graphics_context: if cpu_painting {
+                    CpuGraphicsContext(GLContext::new_with_shared_context(share_gl_context))
+                } else {
+                    GpuGraphicsContext(share_gl_context)
+                },
+
                 render_layer: None,
 
                 paint_permission: false,
@@ -217,11 +239,23 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
 
                     // FIXME(pcwalton): Cache draw targets; don't recreate them all the time.
                     let size = Size2D(width as i32, height as i32);
-                    let draw_target = DrawTarget::new_with_fbo(self.opts.render_backend,
-                                                               self.share_gl_context,
-                                                               size,
-                                                               B8G8R8A8);
-                    draw_target.make_current();
+                    let draw_target = match self.graphics_context {
+                        CpuGraphicsContext(_) => {
+                            DrawTarget::new(self.opts.render_backend, size, B8G8R8A8)
+                        }
+                        GpuGraphicsContext(share_gl_context) => {
+                            DrawTarget::new_with_fbo(self.opts.render_backend,
+                                                     share_gl_context,
+                                                     size,
+                                                     B8G8R8A8)
+                        }
+                    };
+
+                    // Make the appropriate context current.
+                    match self.graphics_context {
+                        CpuGraphicsContext(ref context) => context.make_current(),
+                        GpuGraphicsContext(_) => draw_target.make_current(),
+                    }
                     
                     let mut buffer = match self.buffer_map.find(tile.screen_rect.size) {
                         Some(buffer) => {
@@ -234,7 +268,7 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
                         None => {
                             // Create an empty texture to use as a placeholder.
                             //
-                            // FIXME(pcwalton): This is wasteful!
+                            // FIXME(pcwalton): This is wasteful if GPU rendering is being used!
                             ~LayerBuffer {
                                 texture: Arc::new(Texture::new()),
                                 rect: tile.page_rect,
@@ -273,10 +307,25 @@ impl<C: RenderListener + Send,T:Send+Freeze> RenderTask<C,T> {
                     }
 
                     // Extract the texture from the draw target and place it into its slot in the
-                    // buffer.
-                    draw_target.make_current();
-                    let texture_id = draw_target.steal_texture_id().unwrap();
-                    buffer.texture = Arc::new(Texture::adopt_native_texture(texture_id));
+                    // buffer. If using CPU rendering, upload it first.
+                    match self.graphics_context {
+                        CpuGraphicsContext(ref context) => {
+                            context.make_current();
+                            do draw_target.snapshot().get_data_surface().with_data |data| {
+                                buffer.texture.get().upload_image(&TextureImageData {
+                                    size: Size2D(width as uint, height as uint),
+                                    stride: width,
+                                    format: ARGB32Format,
+                                    data: data,
+                                })
+                            }
+                        }
+                        GpuGraphicsContext(_) => {
+                            draw_target.make_current();
+                            let texture_id = draw_target.steal_texture_id().unwrap();
+                            buffer.texture = Arc::new(Texture::adopt_native_texture(texture_id));
+                        }
+                    }
                     
                     new_buffers.push(buffer);
                 }
