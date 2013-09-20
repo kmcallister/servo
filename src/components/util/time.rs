@@ -5,7 +5,7 @@
 // Timing functions.
 use extra::time::precise_time_ns;
 use std::cell::Cell;
-use std::comm::{Port, SharedChan};
+use std::comm::{Port, SendDeferred, SharedChan};
 use extra::sort::tim_sort;
 use std::iterator::AdditiveIterator;
 use extra::treemap::TreeMap;
@@ -24,6 +24,9 @@ impl ProfilerChan {
     }
     pub fn send(&self, msg: ProfilerMsg) {
         self.chan.send(msg);
+    }
+    pub fn send_deferred(&self, msg: ProfilerMsg) {
+        self.chan.send_deferred(msg);
     }
 }
 
@@ -171,7 +174,7 @@ pub fn profile<T>(category: ProfilerCategory,
     let val = callback();
     let end_time = precise_time_ns();
     let ms = ((end_time - start_time) as float / 1000000f);
-    profiler_chan.send(TimeMsg(category, ms));
+    profiler_chan.send_deferred(TimeMsg(category, ms));
     return val;
 }
 
