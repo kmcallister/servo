@@ -378,7 +378,8 @@ impl Constellation {
                                              {
                                                 let size = self.compositor_chan.get_size();
                                                 from_value(Size2D(size.width as uint, size.height as uint))
-                                             });
+                                             },
+                                             None);
         let failure = ~"about:failure";
         let url = make_url(failure, None);
         pipeline.load(url);
@@ -403,7 +404,8 @@ impl Constellation {
                                              {
                                                  let size = self.compositor_chan.get_size();
                                                  from_value(Size2D(size.width as uint, size.height as uint))
-                                             });
+                                             },
+                                             None);
         if url.path.ends_with(".js") {
             pipeline.script_chan.send(ExecuteMsg(pipeline.id, url));
         } else {
@@ -520,34 +522,24 @@ impl Constellation {
         source's Url is None. There should never be a LoadUrlIframeMsg from a pipeline
         that was never given a url to load.");
 
-        let same_script = (source_url.host == url.host &&
-                           source_url.port == url.port) && sandbox == IFrameUnsandboxed;
         // FIXME(tkuehn): Need to follow the standardized spec for checking same-origin
-        let pipeline = @mut if same_script {
-            debug!("Constellation: loading same-origin iframe at %?", url);
-            // Reuse the script task if same-origin url's
-            Pipeline::with_script(next_pipeline_id,
-                                  Some(subpage_id),
-                                  self.chan.clone(),
-                                  self.compositor_chan.clone(),
-                                  self.image_cache_task.clone(),
-                                  self.profiler_chan.clone(),
-                                  self.opts.clone(),
-                                  source_pipeline,
-                                  size_future)
+        let reuse_script = if (source_url.host == url.host) && (source_url.port == url.port)
+                              && (sandbox == IFrameUnsandboxed) {
+            Some(&*source_pipeline)
         } else {
-            debug!("Constellation: loading cross-origin iframe at %?", url);
-            // Create a new script task if not same-origin url's
-            Pipeline::create(next_pipeline_id,
-                             Some(subpage_id),
-                             self.chan.clone(),
-                             self.compositor_chan.clone(),
-                             self.image_cache_task.clone(),
-                             self.resource_task.clone(),
-                             self.profiler_chan.clone(),
-                             self.opts.clone(),
-                             size_future)
+            None
         };
+
+        let pipeline = @mut Pipeline::create(next_pipeline_id,
+                                             Some(subpage_id),
+                                             self.chan.clone(),
+                                             self.compositor_chan.clone(),
+                                             self.image_cache_task.clone(),
+                                             self.resource_task.clone(),
+                                             self.profiler_chan.clone(),
+                                             self.opts.clone(),
+                                             size_future,
+                                             reuse_script);
 
         if url.path.ends_with(".js") {
             pipeline.execute(url);
@@ -604,7 +596,8 @@ impl Constellation {
                                              self.resource_task.clone(),
                                              self.profiler_chan.clone(),
                                              self.opts.clone(),
-                                             size_future);
+                                             size_future,
+                                             None);
 
         if url.path.ends_with(".js") {
             pipeline.script_chan.send(ExecuteMsg(pipeline.id, url));

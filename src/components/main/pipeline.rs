@@ -19,6 +19,7 @@ use servo_net::resource_task::ResourceTask;
 use servo_util::time::ProfilerChan;
 use geom::size::Size2D;
 use extra::future::Future;
+use std::cell::Cell;
 use std::task;
 
 /// A uniquely-identifiable pipeline of script task, layout task, and render task. 
@@ -35,52 +36,6 @@ pub struct Pipeline {
 
 impl Pipeline {
     /// Starts a render task, layout task, and script task. Returns the channels wrapped in a struct.
-    pub fn with_script(id: PipelineId,
-                       subpage_id: Option<SubpageId>,
-                       constellation_chan: ConstellationChan,
-                       compositor_chan: CompositorChan,
-                       image_cache_task: ImageCacheTask,
-                       profiler_chan: ProfilerChan,
-                       opts: Opts,
-                       script_pipeline: &Pipeline,
-                       size_future: Future<Size2D<uint>>) -> Pipeline {
-        
-        let (layout_port, layout_chan) = special_stream!(LayoutChan);
-        let (render_port, render_chan) = special_stream!(RenderChan);
-
-        RenderTask::create(id,
-                           render_port,
-                           compositor_chan.clone(),
-                           constellation_chan.clone(),
-                           opts.clone(),
-                           profiler_chan.clone());
-
-        LayoutTask::create(id,
-                           layout_port,
-                           constellation_chan,
-                           script_pipeline.script_chan.clone(),
-                           render_chan.clone(),
-                           image_cache_task.clone(),
-                           opts.clone(),
-                           profiler_chan);
-
-        let new_layout_info = NewLayoutInfo {
-            old_id: script_pipeline.id.clone(),
-            new_id: id,
-            layout_chan: layout_chan.clone(),
-            size_future: size_future,
-        };
-
-        script_pipeline.script_chan.send(AttachLayoutMsg(new_layout_info));
-
-        Pipeline::new(id,
-                      subpage_id,
-                      script_pipeline.script_chan.clone(),
-                      layout_chan,
-                      render_chan)
-
-    }
-
     pub fn create(id: PipelineId,
                   subpage_id: Option<SubpageId>,
                   constellation_chan: ConstellationChan,
@@ -89,11 +44,35 @@ impl Pipeline {
                   resource_task: ResourceTask,
                   profiler_chan: ProfilerChan,
                   opts: Opts,
-                  size: Future<Size2D<uint>>) -> Pipeline {
+                  size_future: Future<Size2D<uint>>,
+                  reuse_script: Option<&Pipeline>) -> Pipeline {
 
-        let (script_port, script_chan) = special_stream!(ScriptChan);
+        // We will move size_future to exactly one of AttachLayoutMsg or
+        // ScriptTask::create, but rustc can't see this statically.
+        let size_cell = Cell::new(size_future);
+
         let (layout_port, layout_chan) = special_stream!(LayoutChan);
         let (render_port, render_chan) = special_stream!(RenderChan);
+
+        let (script_port_opt, script_chan) = match reuse_script {
+            None => {
+                let (port, chan) = stream();
+                (Some(port), ScriptChan::new(chan))
+            }
+            Some(script_pipeline) => {
+                // Use an existing script task
+                let new_layout_info = NewLayoutInfo {
+                    old_id: script_pipeline.id.clone(),
+                    new_id: id,
+                    layout_chan: layout_chan.clone(),
+                    size_future: size_cell.take(),
+                };
+                script_pipeline.script_chan.send(AttachLayoutMsg(new_layout_info));
+
+                (None, script_pipeline.script_chan.clone())
+            }
+        };
+
         let pipeline = Pipeline::new(id,
                                      subpage_id,
                                      script_chan.clone(),
@@ -108,18 +87,23 @@ impl Pipeline {
         supervised_task.opts.notify_chan = Some(task_chan);
         supervised_task.supervised();
 
-        spawn_with!(supervised_task, [script_port, resource_task, size, render_port,
+        spawn_with!(supervised_task, [script_port_opt, resource_task, render_port,
                                       layout_port, constellation_chan, image_cache_task,
                                       profiler_chan], {
-            ScriptTask::create(id,
-                               compositor_chan.clone(),
-                               layout_chan.clone(),
-                               script_port,
-                               script_chan.clone(),
-                               constellation_chan.clone(),
-                               resource_task,
-                               image_cache_task.clone(),
-                               size);
+            // Create a script task if we aren't reusing one.
+            match script_port_opt {
+                None => (),
+                Some(script_port) =>
+                    ScriptTask::create(id,
+                                       compositor_chan.clone(),
+                                       layout_chan.clone(),
+                                       script_port,
+                                       script_chan.clone(),
+                                       constellation_chan.clone(),
+                                       resource_task,
+                                       image_cache_task.clone(),
+                                       size_cell.take())
+            }
 
             RenderTask::create(id,
                                render_port,
