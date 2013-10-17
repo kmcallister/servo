@@ -91,28 +91,26 @@ pub fn ImageCacheTask(resource_task: ResourceTask) -> ImageCacheTask {
 
 pub fn ImageCacheTask_(resource_task: ResourceTask, decoder_factory: DecoderFactory)
                        -> ImageCacheTask {
+    let (port, chan) = stream();
+    let chan = SharedChan::new(chan);
+    let chan_clone = chan.clone();
+
     // FIXME: Doing some dancing to avoid copying decoder_factory, our test
     // version of which contains an uncopyable type which rust will currently
     // copy unsoundly
-    let decoder_factory_cell = Cell::new(decoder_factory);
 
-    let (port, chan) = stream();
-    let chan = SharedChan::new(chan);
-    let port_cell = Cell::new(port);
-    let chan_cell = Cell::new(chan.clone());
-
-    do spawn {
+    spawn_with!(task::task(), [decoder_factory, chan_clone], {
         let mut cache = ImageCache {
             resource_task: resource_task.clone(),
-            decoder_factory: decoder_factory_cell.take(),
-            port: port_cell.take(),
-            chan: chan_cell.take(),
+            decoder_factory: decoder_factory,
+            port: port,
+            chan: chan_clone,
             state_map: url_map(),
             wait_map: url_map(),
             need_exit: None
         };
         cache.run();
-    }
+    });
 
     chan
 }

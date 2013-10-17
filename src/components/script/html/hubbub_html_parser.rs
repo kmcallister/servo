@@ -323,23 +323,21 @@ pub fn parse_html(cx: *JSContext,
     let (discovery_port, discovery_chan) = comm::stream();
     let discovery_chan = SharedChan::new(discovery_chan);
 
-    let stylesheet_chan = Cell::new(discovery_chan.clone());
     let (css_msg_port, css_msg_chan) = comm::stream();
-    let css_msg_port = Cell::new(css_msg_port);
-    do spawn {
-        css_link_listener(stylesheet_chan.take(), css_msg_port.take(), resource_task2.clone());
-    }
+    let stylesheet_chan = discovery_chan.clone();
+    spawn_with!(task::task(), [stylesheet_chan, css_msg_port], {
+            css_link_listener(stylesheet_chan, css_msg_port, resource_task2.clone());
+    });
 
     let css_chan = SharedChan::new(css_msg_chan);
 
     // Spawn a JS parser to receive JavaScript.
     let resource_task2 = resource_task.clone();
-    let js_result_chan = Cell::new(discovery_chan.clone());
     let (js_msg_port, js_msg_chan) = comm::stream();
-    let js_msg_port = Cell::new(js_msg_port);
-    do spawn {
-        js_script_listener(js_result_chan.take(), js_msg_port.take(), resource_task2.clone());
-    }
+    let js_result_chan = discovery_chan.clone();
+    spawn_with!(task::task(), [js_result_chan, js_msg_port], {
+        js_script_listener(js_result_chan, js_msg_port, resource_task2.clone());
+    });
     let js_chan = SharedChan::new(js_msg_chan);
 
     // Wait for the LoadResponse so that the parser knows the final URL.
