@@ -10,3 +10,12 @@ macro_rules! special_stream(
         }
     );
 )
+
+// Spawn a task, capturing the listed variables in a way that avoids the
+// move-from-closure error.  This is sugar around the function spawn_with,
+// taking care of building a tuple and a lambda.
+macro_rules! spawn_with(
+    ($task:expr, [ $($var:ident),+ ], $body:block) => (
+        do ($task).spawn_with(( $($var),+ , () )) |( $($var),* , () )| $body
+    )
+)
