@@ -23,9 +23,12 @@ wait_for_img_load(function () {
     is(img.height, 378);
     img.width = 200;
     img.height = 100;
-    is(img.width, 200);
-    is(img.height, 100);
-    finish();
+    // FIXME: check these synchronously (#1129)
+    window.setTimeout(function () {
+        is(img.width, 200);
+        is(img.height, 100);
+        finish();
+    }, 1);
 });
 </script>
 </body>
