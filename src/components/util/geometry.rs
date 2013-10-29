@@ -7,9 +7,16 @@ use geom::rect::Rect;
 use geom::size::Size2D;
 
 use std::num::{NumCast, One, Zero};
+use std::fmt;
 
 #[deriving(Clone)]
 pub struct Au(i32);
+
+impl fmt::Default for Au {
+    fn fmt(obj: &Au, f: &mut fmt::Formatter) {
+        write!(f.buf, "Au({})", *obj);
+    }
+}
 
 impl Eq for Au {
     #[inline]
