@@ -46,8 +46,9 @@ use layout_interface::TrustedNodeAddress;
 use script_task::StackRoots;
 
 use std::cast;
-use std::cell::RefCell;
+use std::cell::{RefCell, Ref, RefMut};
 use std::local_data;
+use libc;
 
 /// A type that represents a JS-owned value that is rooted for the lifetime of this value.
 /// Importantly, it requires explicit rooting in order to interact with the inner value.
@@ -112,7 +113,7 @@ impl<T: Reflectable> Temporary<T> {
 
 /// A rooted, JS-owned value. Must only be used as a field in other JS-owned types.
 pub struct JS<T> {
-    ptr: RefCell<*mut T>
+    ptr: *RefCell<T>
 }
 
 impl<T> Eq for JS<T> {
@@ -125,7 +126,7 @@ impl <T> Clone for JS<T> {
     #[inline]
     fn clone(&self) -> JS<T> {
         JS {
-            ptr: self.ptr.clone()
+            ptr: self.ptr,
         }
     }
 }
@@ -135,16 +136,20 @@ impl JS<Node> {
     pub unsafe fn from_trusted_node_address(inner: TrustedNodeAddress) -> JS<Node> {
         let TrustedNodeAddress(addr) = inner;
         JS {
-            ptr: RefCell::new(addr as *mut Node)
+            ptr: addr as *RefCell<Node>,
         }
+    }
+
+    pub fn to_trusted_node_address(&self) -> TrustedNodeAddress {
+        TrustedNodeAddress(self.ptr as *libc::c_void)
     }
 }
 
 impl<T: Reflectable> JS<T> {
     /// Create a new JS-owned value wrapped from a raw Rust pointer.
-    pub unsafe fn from_raw(raw: *mut T) -> JS<T> {
+    pub unsafe fn from_raw(raw: *RefCell<T>) -> JS<T> {
         JS {
-            ptr: RefCell::new(raw)
+            ptr: raw,
         }
     }
 
@@ -385,10 +390,8 @@ impl RootCollection {
 pub struct Root<'a, 'b, T> {
     /// List that ensures correct dynamic root ordering
     root_list: &'a RootCollection,
-    /// Reference to rooted value that must not outlive this container
-    jsref: JSRef<'b, T>,
     /// Pointer to underlying Rust data
-    ptr: RefCell<*mut T>,
+    ptr: *RefCell<T>,
     /// On-stack JS pointer to assuage conservative stack scanner
     js_ptr: *JSObject,
 }
@@ -400,11 +403,7 @@ impl<'a, 'b, T: Reflectable> Root<'a, 'b, T> {
     fn new(roots: &'a RootCollection, unrooted: &JS<T>) -> Root<'a, 'b, T> {
         let root = Root {
             root_list: roots,
-            jsref: JSRef {
-                ptr: unrooted.ptr.clone(),
-                chain: unsafe { cast::transmute_region(&()) },
-            },
-            ptr: unrooted.ptr.clone(),
+            ptr: unrooted.ptr,
             js_ptr: unrooted.reflector().get_jsobject(),
         };
         roots.root(&root);
@@ -413,8 +412,18 @@ impl<'a, 'b, T: Reflectable> Root<'a, 'b, T> {
 
     /// Obtain a safe reference to the wrapped JS owned-value that cannot outlive
     /// the lifetime of this root.
-    pub fn root_ref<'b>(&'b self) -> JSRef<'b,T> {
-        self.jsref.clone()
+    pub fn borrow<'b>(&'b self) -> JSRef<'b,T> {
+        JSRef {
+            ptr: self.ptr,
+        }
+    }
+
+    /// Obtain a safe reference to the wrapped JS owned-value that cannot outlive
+    /// the lifetime of this root.
+    pub fn borrow_mut<'b>(&'b self) -> JSRefMut<'b,T> {
+        JSRefMut {
+            ptr: self.ptr,
+        }
     }
 }
 
@@ -455,24 +464,21 @@ impl<'a, T: Reflectable> DerefMut<T> for JSRef<'a, T> {
     }
 }
 
-/// Encapsulates a reference to something that is guaranteed to be alive. This is freely copyable.
+/// Encapsulates a reference to something that is guaranteed to be alive.
 pub struct JSRef<'a, T> {
-    ptr: RefCell<*mut T>,
-    chain: &'a (),
+    ptr: Ref<'a, T>,
+    raw: *RefCell<T>,
 }
 
-impl<'a, T> Clone for JSRef<'a, T> {
-    fn clone(&self) -> JSRef<'a, T> {
-        JSRef {
-            ptr: self.ptr.clone(),
-            chain: self.chain
-        }
-    }
+/// Encapsulates a mutable reference to something that is guaranteed to be alive.
+pub struct JSRefMut<'a, T> {
+    ptr: RefMut<'a, T>,
+    raw: *RefCell<T>,
 }
 
 impl<'a, T> Eq for JSRef<'a, T> {
     fn eq(&self, other: &JSRef<T>) -> bool {
-        self.ptr == other.ptr
+        self.raw == other.raw
     }
 }
 
@@ -489,7 +495,7 @@ impl<'a,T> JSRef<'a,T> {
 
     pub fn unrooted(&self) -> JS<T> {
         JS {
-            ptr: self.ptr.clone()
+            ptr: self.raw,
         }
     }
 }
