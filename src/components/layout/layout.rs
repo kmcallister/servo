@@ -21,7 +21,7 @@ extern crate layout_traits;
 extern crate script;
 extern crate style;
 #[phase(plugin)]
-extern crate servo_macros = "macros";
+extern crate compiler_plugins;
 extern crate servo_net = "net";
 extern crate servo_msg = "msg";
 #[phase(plugin, link)]

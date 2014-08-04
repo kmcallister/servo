@@ -2,16 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#![crate_name = "macros"]
-#![crate_type = "rlib"]
-
-#![feature(macro_rules)]
-
-
-#[cfg(test)]
-extern crate sync;
-
-
 #[macro_export]
 macro_rules! bitfield(
     ($bitfieldname:ident, $getter:ident, $setter:ident, $value:expr) => (

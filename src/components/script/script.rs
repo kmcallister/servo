@@ -34,7 +34,7 @@ extern crate rustrt;
 extern crate serialize;
 extern crate time;
 #[phase(plugin)]
-extern crate servo_macros = "macros";
+extern crate compiler_plugins;
 extern crate servo_net = "net";
 extern crate servo_util = "util";
 extern crate style;

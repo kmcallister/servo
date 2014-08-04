@@ -15,7 +15,8 @@ extern crate log;
 
 extern crate rustuv;
 
-extern crate servo_macros = "macros";
+#[phase(plugin)]
+extern crate compiler_plugins;
 extern crate servo;
 
 extern crate azure;

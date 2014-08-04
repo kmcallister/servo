@@ -22,7 +22,7 @@ extern crate rustrt;
 extern crate stb_image;
 extern crate png;
 #[phase(plugin)]
-extern crate servo_macros = "macros";
+extern crate compiler_plugins;
 extern crate servo_net = "net";
 #[phase(plugin, link)]
 extern crate servo_util = "util";
