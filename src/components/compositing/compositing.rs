@@ -32,6 +32,8 @@ extern crate servo_msg = "msg";
 extern crate servo_net = "net";
 #[phase(plugin, link)]
 extern crate servo_util = "util";
+#[phase(plugin)]
+extern crate compiler_plugins;
 
 extern crate libc;
 extern crate time;

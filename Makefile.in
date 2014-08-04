@@ -228,26 +228,26 @@ DONE_compiler_plugins = $(B)src/components/compiler_plugins/libcompiler_plugins.
 
 DEPS_compiler_plugins = $(CRATE_compiler_plugins) $(SRC_compiler_plugins) $(DONE_SUBMODULES)
 
-RFLAGS_util = $(addprefix -L $(B)src/,$(DEPS_SUBMODULES))
+RFLAGS_util = $(addprefix -L $(B)src/,$(DEPS_SUBMODULES)) -L $(B)src/components/compiler_plugins
 SRC_util = $(call rwildcard,$(S)src/components/util/,*.rs)
 CRATE_util = $(S)src/components/util/util.rs
 DONE_util = $(B)src/components/util/libutil.dummy
 
-DEPS_util = $(CRATE_util) $(SRC_util) $(DONE_SUBMODULES)
+DEPS_util = $(CRATE_util) $(SRC_util) $(DONE_SUBMODULES) $(DONE_compiler_plugins)
 
-RFLAGS_net = $(addprefix -L $(B)src/,$(DEPS_SUBMODULES)) -L $(B)src/components/util
+RFLAGS_net = $(addprefix -L $(B)src/,$(DEPS_SUBMODULES)) -L $(B)src/components/util -L $(B)src/components/compiler_plugins
 SRC_net = $(call rwildcard,$(S)src/components/net/,*.rs)
 CRATE_net = $(S)src/components/net/net.rs
 DONE_net = $(B)src/components/net/libnet.dummy
 
-DEPS_net = $(CRATE_net) $(SRC_net) $(DONE_SUBMODULES) $(DONE_util)
+DEPS_net = $(CRATE_net) $(SRC_net) $(DONE_SUBMODULES) $(DONE_util) $(DONE_compiler_plugins)
 
-RFLAGS_msg = $(addprefix -L $(B)src/,$(DEPS_SUBMODULES)) -L $(B)src/components/util
+RFLAGS_msg = $(addprefix -L $(B)src/,$(DEPS_SUBMODULES)) -L $(B)src/components/util -L $(B)src/components/compiler_plugins
 SRC_msg = $(call rwildcard,$(S)src/components/msg/,*.rs)
 CRATE_msg = $(S)src/components/msg/msg.rs
 DONE_msg = $(B)src/components/msg/libmsg.dummy
 
-DEPS_msg = $(CRATE_msg) $(SRC_msg) $(DONE_SUBMODULES) $(DONE_util)
+DEPS_msg = $(CRATE_msg) $(SRC_msg) $(DONE_SUBMODULES) $(DONE_util) $(DONE_compiler_plugins)
 
 RFLAGS_gfx = $(addprefix -L $(B)src/,$(DEPS_SUBMODULES)) -L $(B)src/components/util -L $(B)src/components/style -L $(B)src/components/net -L $(B)src/components/msg -L$(B)src/components/compiler_plugins
 SRC_gfx = $(call rwildcard,$(S)src/components/gfx/,*.rs)
@@ -281,13 +281,13 @@ DONE_style = $(B)src/components/style/libstyle.dummy
 
 DEPS_style = $(CRATE_style) $(SRC_style) $(DONE_SUBMODULES) $(DONE_util) $(DONE_compiler_plugins)
 
-RFLAGS_layout_traits = $(addprefix -L $(B)src/,$(DEPS_SUBMODULES)) -L $(B)src/components/gfx -L $(B)src/components/util -L $(B)src/components/net -L $(B)src/components/script -L $(B)src/components/style -L $(B)src/components/msg
+RFLAGS_layout_traits = $(addprefix -L $(B)src/,$(DEPS_SUBMODULES)) -L $(B)src/components/gfx -L $(B)src/components/util -L $(B)src/components/net -L $(B)src/components/script -L $(B)src/components/style -L $(B)src/components/msg -L $(B)src/components/compiler_plugins
 
 SRC_layout_traits = $(call rwildcard,$(S)src/components/layout_traits/,*.rs)
 CRATE_layout_traits = $(S)src/components/layout_traits/layout_traits.rs
 DONE_layout_traits = $(B)src/components/layout_traits/liblayout_traits.dummy
 
-DEPS_layout_traits = $(CRATE_layout_traits) $(SRC_layout_traits) $(DONE_script) $(DONE_msg) $(DONE_net) $(DONE_gfx) $(DONE_util)
+DEPS_layout_traits = $(CRATE_layout_traits) $(SRC_layout_traits) $(DONE_script) $(DONE_msg) $(DONE_net) $(DONE_gfx) $(DONE_util) $(DONE_compiler_plugins)
 
 RFLAGS_layout = $(addprefix -L $(B)src/,$(DEPS_SUBMODULES)) -L $(B)src/components/gfx -L $(B)src/components/util -L $(B)src/components/net -L $(B)src/components/script -L $(B)src/components/style -L $(B)src/components/msg -L$(B)src/components/compiler_plugins -L$(B)src/components/layout_traits
 
@@ -297,13 +297,13 @@ DONE_layout = $(B)src/components/layout/liblayout.dummy
 
 DEPS_layout = $(CRATE_layout) $(SRC_layout) $(DONE_script) $(DONE_style) $(DONE_msg) $(DONE_compiler_plugins) $(DONE_gfx) $(DONE_util) $(DONE_layout_traits)
 
-RFLAGS_compositing = $(addprefix -L $(B)src/,$(DEPS_SUBMODULES)) -L $(B)src/components/gfx -L $(B)src/components/util -L $(B)src/components/net -L $(B)src/components/script -L $(B)src/components/layout_traits -L $(B)src/components/style -L $(B)src/components/msg
+RFLAGS_compositing = $(addprefix -L $(B)src/,$(DEPS_SUBMODULES)) -L $(B)src/components/gfx -L $(B)src/components/util -L $(B)src/components/net -L $(B)src/components/script -L $(B)src/components/layout_traits -L $(B)src/components/style -L $(B)src/components/msg -L $(B)src/components/compiler_plugins
 
 SRC_compositing = $(call rwildcard,$(S)src/components/compositing/,*.rs)
 CRATE_compositing = $(S)src/components/compositing/compositing.rs
 DONE_compositing = $(B)src/components/compositing/libcompositing.dummy
 
-DEPS_compositing = $(CRATE_compositing) $(SRC_compositing) $(DONE_util) $(DONE_msg) $(DONE_gfx) $(DONE_script) $(DONE_layout_traits) $(DONE_style)
+DEPS_compositing = $(CRATE_compositing) $(SRC_compositing) $(DONE_util) $(DONE_msg) $(DONE_gfx) $(DONE_script) $(DONE_layout_traits) $(DONE_style) $(DONE_compiler_plugins)
 
 RFLAGS_servo = $(addprefix -L $(B)src/,$(DEPS_SUBMODULES)) -L $(B)src/components/gfx -L $(B)src/components/util -L $(B)src/components/net -L $(B)src/components/script -L $(B)src/components/layout_traits -L $(B)src/components/layout -L $(B)src/components/compositing -L $(B)src/components/style -L $(B)src/components/msg -L$(B)src/components/compiler_plugins
 

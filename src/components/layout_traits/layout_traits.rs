@@ -8,11 +8,15 @@
 #![comment = "The Servo Parallel Browser Project"]
 #![license = "MPL"]
 
+#![feature(phase)]
+
 extern crate gfx;
 extern crate script;
 extern crate servo_msg = "msg";
 extern crate servo_net = "net";
 extern crate servo_util = "util";
+#[phase(plugin)]
+extern crate compiler_plugins;
 
 // This module contains traits in layout used generically
 //   in the rest of Servo.

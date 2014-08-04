@@ -28,6 +28,8 @@ extern crate sync;
 extern crate task_info;
 extern crate std_time = "time";
 extern crate string_cache;
+#[phase(plugin)]
+extern crate compiler_plugins;
 
 pub mod atom;
 pub mod cache;

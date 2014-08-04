@@ -19,6 +19,8 @@ extern crate servo_net = "net";
 extern crate servo_msg = "msg";
 #[phase(plugin, link)]
 extern crate servo_util = "util";
+#[phase(plugin)]
+extern crate compiler_plugins;
 extern crate script;
 extern crate layout;
 extern crate green;

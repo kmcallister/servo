@@ -5,11 +5,15 @@
 #![crate_name = "msg"]
 #![crate_type = "rlib"]
 
+#![feature(phase)]
+
 extern crate azure;
 extern crate geom;
 extern crate layers;
 extern crate serialize;
 extern crate servo_util = "util";
+#[phase(plugin)]
+extern crate compiler_plugins;
 extern crate std;
 extern crate url = "url_";
 

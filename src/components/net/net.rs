@@ -20,6 +20,9 @@ extern crate stb_image;
 extern crate sync;
 extern crate url = "url_";
 
+#[phase(plugin)]
+extern crate compiler_plugins;
+
 /// Image handling.
 ///
 /// It may be surprising that this goes in the network crate as opposed to the graphics crate.
