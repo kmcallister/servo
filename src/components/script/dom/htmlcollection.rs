@@ -27,6 +27,7 @@ impl<S: Encoder<E>, E> Encodable<S, E> for Box<CollectionFilter> {
     }
 }
 
+#[allow(unrooted_js_managed)]
 #[deriving(Encodable)]
 pub enum CollectionTypeId {
     Static(Vec<JS<Element>>),

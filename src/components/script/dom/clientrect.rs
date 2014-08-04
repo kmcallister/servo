@@ -10,6 +10,7 @@ use dom::bindings::utils::{Reflectable, Reflector, reflect_dom_object};
 use dom::window::Window;
 use servo_util::geometry::Au;
 
+#[allow(unrooted_js_managed)]
 #[deriving(Encodable)]
 pub struct ClientRect {
     reflector_: Reflector,

@@ -97,6 +97,7 @@ enum SyncOrAsync<'a, 'b> {
 }
 
 
+#[allow(unrooted_js_managed)]
 #[deriving(Encodable)]
 pub struct XMLHttpRequest {
     eventtarget: XMLHttpRequestEventTarget,

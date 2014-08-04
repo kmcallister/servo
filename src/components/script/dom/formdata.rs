@@ -18,6 +18,7 @@ use servo_util::str::DOMString;
 use std::cell::RefCell;
 use std::collections::hashmap::HashMap;
 
+#[allow(unrooted_js_managed)]
 #[deriving(Encodable, Clone)]
 pub enum FormDatum {
     StringData(DOMString),

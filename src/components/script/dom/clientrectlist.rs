@@ -10,6 +10,7 @@ use dom::bindings::utils::{Reflectable, Reflector, reflect_dom_object};
 use dom::clientrect::ClientRect;
 use dom::window::Window;
 
+#[allow(unrooted_js_managed)]
 #[deriving(Encodable)]
 pub struct ClientRectList {
     reflector_: Reflector,

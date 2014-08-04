@@ -42,6 +42,7 @@ use std::ascii::StrAsciiExt;
 use std::cell::{Cell, RefCell};
 use std::mem;
 
+#[allow(unrooted_js_managed)]
 #[deriving(Encodable)]
 pub struct Element {
     pub node: Node,
@@ -205,6 +206,7 @@ pub trait LayoutElementHelpers {
     unsafe fn html_element_in_html_document_for_layout(&self) -> bool;
 }
 
+#[warn(unrooted_js_managed)]
 impl LayoutElementHelpers for JS<Element> {
     unsafe fn html_element_in_html_document_for_layout(&self) -> bool {
         if (*self.unsafe_get()).namespace != namespace::HTML {

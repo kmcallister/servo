@@ -679,11 +679,13 @@ pub trait LayoutNodeHelpers {
     unsafe fn prev_sibling_ref(&self) -> Option<JS<Node>>;
     unsafe fn next_sibling_ref(&self) -> Option<JS<Node>>;
 
+    #[warn(unrooted_js_managed)]
     unsafe fn owner_doc_for_layout(&self) -> JS<Document>;
 
     unsafe fn is_element_for_layout(&self) -> bool;
 }
 
+#[warn(unrooted_js_managed)]
 impl LayoutNodeHelpers for JS<Node> {
     #[inline]
     unsafe fn type_id_for_layout(&self) -> NodeTypeId {
@@ -720,6 +722,7 @@ impl LayoutNodeHelpers for JS<Node> {
         (*self.unsafe_get()).next_sibling.get()
     }
 
+    #[warn(unrooted_js_managed)]
     #[inline]
     unsafe fn owner_doc_for_layout(&self) -> JS<Document> {
         (*self.unsafe_get()).owner_doc.get().unwrap()
@@ -804,6 +807,7 @@ impl<'a> Iterator<JSRef<'a, Node>> for TreeIterator<'a> {
     }
 }
 
+#[warn(unrooted_js_managed)]
 pub struct NodeIterator {
     pub start_node: JS<Node>,
     pub current_node: Option<JS<Node>>,

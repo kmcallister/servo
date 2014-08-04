@@ -10,6 +10,7 @@ use dom::bindings::utils::{Reflectable, Reflector, reflect_dom_object};
 use dom::node::{Node, NodeHelpers};
 use dom::window::Window;
 
+#[allow(unrooted_js_managed)]
 #[deriving(Encodable)]
 pub enum NodeListType {
     Simple(Vec<JS<Node>>),

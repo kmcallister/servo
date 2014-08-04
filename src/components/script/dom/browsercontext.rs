@@ -66,6 +66,7 @@ impl BrowserContext {
     }
 }
 
+#[allow(unrooted_js_managed)]
 #[deriving(Encodable)]
 pub struct SessionHistoryEntry {
     document: JS<Document>,

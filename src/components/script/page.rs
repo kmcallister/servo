@@ -418,6 +418,7 @@ impl Page {
 }
 
 /// Information for one frame in the browsing context.
+#[allow(unrooted_js_managed)]
 #[deriving(Encodable)]
 pub struct Frame {
     /// The document for this frame.

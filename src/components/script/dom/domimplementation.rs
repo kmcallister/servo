@@ -22,6 +22,7 @@ use dom::node::Node;
 use dom::text::Text;
 use servo_util::str::DOMString;
 
+#[allow(unrooted_js_managed)]
 #[deriving(Encodable)]
 pub struct DOMImplementation {
     document: JS<Document>,

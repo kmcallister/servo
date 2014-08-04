@@ -61,6 +61,7 @@ pub enum IsHTMLDocument {
     NonHTMLDocument,
 }
 
+#[allow(unrooted_js_managed)]
 #[deriving(Encodable)]
 pub struct Document {
     pub node: Node,

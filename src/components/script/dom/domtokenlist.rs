@@ -14,6 +14,7 @@ use dom::node::window_from_node;
 use servo_util::namespace::Null;
 use servo_util::str::DOMString;
 
+#[allow(unrooted_js_managed)]
 #[deriving(Encodable)]
 pub struct DOMTokenList {
     reflector_: Reflector,

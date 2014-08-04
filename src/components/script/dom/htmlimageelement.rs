@@ -85,6 +85,7 @@ pub trait LayoutHTMLImageElementHelpers {
     unsafe fn image(&self) -> Option<Url>;
 }
 
+#[warn(unrooted_js_managed)]
 impl LayoutHTMLImageElementHelpers for JS<HTMLImageElement> {
     unsafe fn image(&self) -> Option<Url> {
         (*self.unsafe_get()).image.borrow().clone()

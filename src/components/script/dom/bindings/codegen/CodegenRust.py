@@ -1339,9 +1339,11 @@ class CGImports(CGWrapper):
             'unused_mut',
             'dead_assignment',
             'dead_code',
+            'unrooted_js_managed',
         ]
 
         statements = ['#![allow(%s)]' % ','.join(ignored_warnings)]
+        statements.append('#![warn(unrooted_js_managed)]')
         statements.extend('use %s;' % i for i in sorted(imports))
 
         CGWrapper.__init__(self, child,

@@ -11,6 +11,7 @@ use dom::bindings::utils::{Reflectable, Reflector, reflect_dom_object};
 use dom::element::Element;
 use dom::window::Window;
 
+#[allow(unrooted_js_managed)]
 #[deriving(Encodable)]
 pub struct AttrList {
     reflector_: Reflector,

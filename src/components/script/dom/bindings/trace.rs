@@ -48,6 +48,7 @@ fn get_jstracer<'a, S: Encoder<E>, E>(s: &'a mut S) -> &'a mut JSTracer {
     }
 }
 
+#[allow(unrooted_js_managed)]
 impl<T: Reflectable+Encodable<S, E>, S: Encoder<E>, E> Encodable<S, E> for JS<T> {
     fn encode(&self, s: &mut S) -> Result<(), E> {
         trace_reflector(get_jstracer(s), "", self.reflector());

@@ -13,6 +13,7 @@ use dom::document::{Document, HTMLDocument, NonHTMLDocument};
 use dom::window::Window;
 use servo_util::str::DOMString;
 
+#[allow(unrooted_js_managed)]
 #[deriving(Encodable)]
 pub struct DOMParser {
     window: JS<Window>, //XXXjdm Document instead?

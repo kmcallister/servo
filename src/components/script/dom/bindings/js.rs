@@ -45,6 +45,8 @@
 //! - `OptionalSettable`: allows assigning `Option` values of `JSRef`/`Temporary` to fields of `Option<JS<T>>`
 //! - `RootedReference`: makes obtaining an `Option<JSRef<T>>` from an `Option<Root<T>>` easy
 
+#![allow(unrooted_js_managed)]
+
 use dom::bindings::utils::{Reflector, Reflectable};
 use dom::node::Node;
 use dom::xmlhttprequest::{XMLHttpRequest, TrustedXHRAddress};
@@ -104,7 +106,8 @@ impl<T: Reflectable> Temporary<T> {
     }
 }
 
-/// A rooted, JS-owned value. Must only be used as a field in other JS-owned types.
+/// A JS-owned value. Must only be used as a field in other JS-owned types.
+#[unrooted_js_managed]
 pub struct JS<T> {
     ptr: *const T
 }

@@ -317,6 +317,7 @@ impl ToJSValConvertible for Reflector {
     }
 }
 
+#[warn(unrooted_js_managed)]
 impl<T: Reflectable+IDLInterface> FromJSValConvertible<()> for JS<T> {
     fn from_jsval(_cx: *mut JSContext, value: JSVal, _option: ()) -> Result<JS<T>, ()> {
         if !value.is_object() {
@@ -340,6 +341,7 @@ impl<'a, T: Reflectable> ToJSValConvertible for JSRef<'a, T> {
     }
 }
 
+#[warn(unrooted_js_managed)]
 impl<'a, T: Reflectable> ToJSValConvertible for JS<T> {
     fn to_jsval(&self, cx: *mut JSContext) -> JSVal {
         self.reflector().to_jsval(cx)
