@@ -11,14 +11,15 @@ use gfx::render_task;
 use libc;
 use pipeline::{Pipeline, CompositionPipeline};
 use layout_traits::{LayoutControlChan, LayoutTaskFactory, ExitNowMsg};
-use script_traits::{ResizeMsg, ResizeInactiveMsg, ExitPipelineMsg};
+use script_traits;
+use script_traits::{ResizeMsg, ResizeInactiveMsg, ExitPipelineMsg, SendEventMsg};
 use script_traits::{ScriptControlChan, ScriptTaskFactory};
 use servo_msg::compositor_msg::LayerId;
 use servo_msg::constellation_msg::{ConstellationChan, ExitMsg, FailureMsg, Failure, FrameRectMsg};
 use servo_msg::constellation_msg::{IFrameSandboxState, IFrameUnsandboxed, InitLoadUrlMsg};
 use servo_msg::constellation_msg::{LoadCompleteMsg, LoadIframeUrlMsg, LoadUrlMsg, Msg, NavigateMsg};
 use servo_msg::constellation_msg::{LoadData, NavigationType, PipelineId, RendererReadyMsg, ResizedWindowMsg};
-use servo_msg::constellation_msg::{SubpageId, WindowSizeData};
+use servo_msg::constellation_msg::{SubpageId, WindowSizeData, KeyEvent, Key, KeyState};
 use servo_msg::constellation_msg;
 use servo_net::image_cache_task::{ImageCacheTask, ImageCacheTaskClient};
 use gfx::font_cache_task::FontCacheTask;
@@ -383,6 +384,10 @@ impl<LTF: LayoutTaskFactory, STF: ScriptTaskFactory> Constellation<LTF, STF> {
                 debug!("constellation got window resize message");
                 self.handle_resized_window_msg(new_size);
             }
+            KeyEvent(key, state) => {
+                debug!("constellation got key event message");
+                self.handle_key_msg(key, state);
+            }
         }
         true
     }
@@ -683,6 +688,13 @@ impl<LTF: LayoutTaskFactory, STF: ScriptTaskFactory> Constellation<LTF, STF> {
         }
         self.grant_paint_permission(destination_frame, constellation_msg::Navigate);
 
+    }
+
+    fn handle_key_msg(&self, key: Key, state: KeyState) {
+        self.current_frame().as_ref().map(|frame| {
+            let ScriptControlChan(ref chan) = frame.pipeline.script_chan;
+            chan.send(SendEventMsg(frame.pipeline.id, script_traits::KeyEvent(key, state)));
+        });
     }
 
     fn handle_renderer_ready_msg(&mut self, pipeline_id: PipelineId) {
