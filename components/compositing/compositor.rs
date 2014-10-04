@@ -38,7 +38,7 @@ use gleam::gl;
 use servo_msg::compositor_msg::{Blank, Epoch, FinishedLoading, IdleRenderState, LayerId};
 use servo_msg::compositor_msg::{ReadyState, RenderingRenderState, RenderState, Scrollable};
 use servo_msg::constellation_msg::{ConstellationChan, ExitMsg, LoadUrlMsg, NavigateMsg, KeyState};
-use servo_msg::constellation_msg::{LoadData, PipelineId, ResizedWindowMsg, WindowSizeData, Key};
+use servo_msg::constellation_msg::{LoadData, PipelineId, ResizedWindowMsg, WindowSizeData, Key, KeyModifiers};
 use servo_msg::constellation_msg;
 use servo_util::geometry::{PagePx, ScreenPx, ViewportPx};
 use servo_util::memory::MemoryProfilerChan;
@@ -652,8 +652,8 @@ impl<Window: WindowMethods> IOCompositor<Window> {
                 self.on_navigation_window_event(direction);
             }
 
-            KeyEvent(key, state) => {
-                self.on_key_event(key, state);
+            KeyEvent(key, state, modifiers) => {
+                self.on_key_event(key, state, modifiers);
             }
 
             FinishedWindowEvent => {
@@ -808,9 +808,9 @@ impl<Window: WindowMethods> IOCompositor<Window> {
         chan.send(NavigateMsg(direction))
     }
 
-    fn on_key_event(&self, key: Key, state: KeyState) {
+    fn on_key_event(&self, key: Key, state: KeyState, modifiers: KeyModifiers) {
         let ConstellationChan(ref chan) = self.constellation_chan;
-        chan.send(constellation_msg::KeyEvent(key, state))
+        chan.send(constellation_msg::KeyEvent(key, state, modifiers))
     }
 
     fn convert_buffer_requests_to_pipeline_requests_map(&self,
