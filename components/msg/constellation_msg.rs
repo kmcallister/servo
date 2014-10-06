@@ -58,6 +58,7 @@ pub enum KeyState {
 }
 
 //N.B. Straight up copied from glfw-rs
+#[deriving(Show)]
 pub enum Key {
     KeySpace,
     KeyApostrophe,

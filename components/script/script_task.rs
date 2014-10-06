@@ -1066,7 +1066,6 @@ impl ScriptTask {
                           state: KeyState,
                           modifiers: KeyModifiers,
                           pipeline_id: PipelineId) {
-        println!("key {} is {}", key as int, state as int);
         let page = get_page(&*self.page.borrow(), pipeline_id);
         let frame = page.frame();
         let window = frame.as_ref().unwrap().window.root();
@@ -1092,21 +1091,24 @@ impl ScriptTask {
             Released => "keyup",
         }.to_string();
 
-        let props = KeyboardEvent::key_properties(key);
+        let props = KeyboardEvent::key_properties(key, modifiers);
 
         let event = KeyboardEvent::new(*window, ev_type, true, true, Some(*window), 0,
-                                       props.key.clone(), props.code.clone(), props.location,
+                                       props.key.to_string(), props.code.to_string(), props.location,
                                        is_repeating, is_composing, ctrl, alt, shift, meta,
-                                       props.char_code, props.key_code).root();
+                                       None, props.key_code).root();
         let _ = target.DispatchEvent(EventCast::from_ref(*event));
 
         if state != Released && props.is_printable() {
             let event = KeyboardEvent::new(*window, "keypress".to_string(), true, true, Some(*window),
-                                           0, props.key.clone(), props.code.clone(), props.location,
-                                           is_repeating, is_composing, ctrl, alt, shift, meta,
-                                           props.char_code, props.key_code).root();
+                                           0, props.key.to_string(), props.code.to_string(),
+                                           props.location, is_repeating, is_composing,
+                                           ctrl, alt, shift, meta,
+                                           props.char_code, 0).root();
             let _ = target.DispatchEvent(EventCast::from_ref(*event));
         }
+
+        window.flush_layout();
     }
 
     /// The entry point for content to notify that a new load has been requested
