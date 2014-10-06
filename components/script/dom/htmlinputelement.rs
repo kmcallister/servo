@@ -26,7 +26,7 @@ use dom::keyboardevent::KeyboardEvent;
 use dom::htmlformelement::{InputElement, FormOwner, HTMLFormElement, HTMLFormElementHelpers, NotFromFormSubmitMethod};
 use dom::node::{DisabledStateHelpers, Node, NodeHelpers, ElementNodeTypeId, document_from_node, window_from_node};
 use dom::virtualmethods::VirtualMethods;
-use textinput::{TextInput, TriggerDefaultAction, DispatchInput, Nothing};
+use textinput::{Single, TextInput, TriggerDefaultAction, DispatchInput, Nothing};
 
 use servo_util::str::{DOMString, parse_unsigned_integer};
 use string_cache::Atom;
@@ -73,7 +73,7 @@ impl HTMLInputElement {
             input_type: Cell::new(InputText),
             checked: Cell::new(false),
             size: Cell::new(DEFAULT_INPUT_SIZE),
-            textinput: DOMRefCell::new(TextInput::new(false, "".to_string())),
+            textinput: DOMRefCell::new(TextInput::new(Single, "".to_string())),
         }
     }
 
@@ -423,6 +423,8 @@ impl<'a> VirtualMethods for JSRef<'a, HTMLInputElement> {
                 }
                 _ => {}
             }
+
+            //TODO: set the editing position for text inputs
 
             let doc = document_from_node(*self).root();
             doc.request_focus(ElementCast::from_ref(*self));
