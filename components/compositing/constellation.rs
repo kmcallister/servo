@@ -13,7 +13,8 @@ use gfx::render_task;
 use layers::geometry::DevicePixel;
 use layout_traits::{LayoutControlChan, LayoutTaskFactory, ExitNowMsg};
 use libc;
-use script_traits::{ResizeMsg, ResizeInactiveMsg, ExitPipelineMsg};
+use script_traits;
+use script_traits::{ResizeMsg, ResizeInactiveMsg, ExitPipelineMsg, SendEventMsg};
 use script_traits::{ScriptControlChan, ScriptTaskFactory};
 use servo_msg::compositor_msg::LayerId;
 use servo_msg::constellation_msg::{ConstellationChan, ExitMsg, FailureMsg, Failure, FrameRectMsg};
@@ -21,6 +22,7 @@ use servo_msg::constellation_msg::{IFrameSandboxState, IFrameUnsandboxed, InitLo
 use servo_msg::constellation_msg::{LoadCompleteMsg, LoadIframeUrlMsg, LoadUrlMsg, Msg};
 use servo_msg::constellation_msg::{LoadData, NavigateMsg, NavigationType, PipelineId};
 use servo_msg::constellation_msg::{RendererReadyMsg, ResizedWindowMsg, SubpageId, WindowSizeData};
+use servo_msg::constellation_msg::{KeyEvent, Key, KeyState, KeyModifiers};
 use servo_msg::constellation_msg;
 use servo_net::image_cache_task::{ImageCacheTask, ImageCacheTaskClient};
 use servo_net::resource_task::ResourceTask;
@@ -413,6 +415,10 @@ impl<LTF: LayoutTaskFactory, STF: ScriptTaskFactory> Constellation<LTF, STF> {
                 debug!("constellation got window resize message");
                 self.handle_resized_window_msg(new_size);
             }
+            KeyEvent(key, state, modifiers) => {
+                debug!("constellation got key event message");
+                self.handle_key_msg(key, state, modifiers);
+            }
         }
         true
     }
@@ -735,6 +741,13 @@ impl<LTF: LayoutTaskFactory, STF: ScriptTaskFactory> Constellation<LTF, STF> {
         }
         self.grant_paint_permission(destination_frame, constellation_msg::Navigate);
 
+    }
+
+    fn handle_key_msg(&self, key: Key, state: KeyState, mods: KeyModifiers) {
+        self.current_frame().as_ref().map(|frame| {
+            let ScriptControlChan(ref chan) = frame.pipeline.script_chan;
+            chan.send(SendEventMsg(frame.pipeline.id, script_traits::KeyEvent(key, state, mods)));
+        });
     }
 
     fn handle_renderer_ready_msg(&mut self, pipeline_id: PipelineId) {
