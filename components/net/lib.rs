@@ -20,7 +20,6 @@ extern crate collections;
 extern crate flate2;
 extern crate geom;
 extern crate hyper;
-extern crate png;
 #[macro_use]
 extern crate log;
 extern crate openssl;
@@ -29,6 +28,7 @@ extern crate util;
 extern crate time;
 extern crate url;
 extern crate uuid;
+extern crate image as piston_image;
 
 extern crate regex;
 

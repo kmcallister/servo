@@ -33,9 +33,8 @@ use canvas::canvas_paint_task::{CanvasPaintTask, FillOrStrokeStyle};
 use canvas::canvas_paint_task::{LinearGradientStyle, RadialGradientStyle};
 use canvas::canvas_paint_task::{LineCapStyle, LineJoinStyle, CompositionOrBlending};
 
-use net_traits::image::base::Image;
+use net_traits::image::base::{Image, Format};
 use net_traits::image_cache_task::ImageCacheChan;
-use png::PixelsByColorType;
 
 use num::{Float, ToPrimitive};
 use std::borrow::ToOwned;
@@ -263,14 +262,12 @@ impl CanvasRenderingContext2D {
             Some(img) => img,
             None => return None,
         };
-
         let image_size = Size2D(img.width as f64, img.height as f64);
-        let mut image_data = match img.pixels {
-            PixelsByColorType::RGBA8(ref pixels) => pixels.to_vec(),
-            PixelsByColorType::K8(_) => panic!("K8 color type not supported"),
-            PixelsByColorType::RGB8(_) => panic!("RGB8 color type not supported"),
-            PixelsByColorType::KA8(_) => panic!("KA8 color type not supported"),
-        };
+        if img.format != Format::RGBA {
+           panic!("Color type {:?} not supported", img.format);
+        }
+
+        let mut image_data = img.data.clone();
         // Pixels come from cache in BGRA order and drawImage expects RGBA so we
         // have to swap the color values
         byte_swap(&mut image_data);

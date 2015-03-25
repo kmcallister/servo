@@ -22,8 +22,6 @@ extern crate collections;
 extern crate geom;
 extern crate layers;
 extern crate libc;
-extern crate stb_image;
-extern crate png;
 extern crate profile_traits;
 extern crate script_traits;
 extern crate rustc_serialize;

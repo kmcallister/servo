@@ -12,11 +12,10 @@ extern crate geom;
 extern crate hyper;
 #[macro_use]
 extern crate log;
-extern crate png;
-extern crate stb_image;
 extern crate url;
 extern crate util;
 extern crate msg;
+extern crate image as piston_image;
 
 use hyper::header::{ContentType, Headers};
 use hyper::http::RawStatus;

@@ -22,6 +22,7 @@ use list_item::ListItemFlow;
 use model::{self, MaybeAuto, ToGfxMatrix};
 use table_cell::CollapsedBordersForCell;
 
+use net_traits::image::base as net_image;
 use geom::{Matrix2D, Point2D, Rect, Size2D, SideOffsets2D};
 use gfx::color;
 use gfx::display_list::{BLUR_INFLATION_FACTOR, BaseDisplayItem, BorderDisplayItem};
@@ -35,7 +36,6 @@ use gfx::paint_task::{PaintLayer, THREAD_TINT_COLORS};
 use msg::compositor_msg::ScrollPolicy;
 use msg::constellation_msg::ConstellationChan;
 use msg::constellation_msg::Msg as ConstellationMsg;
-use png::{self, PixelsByColorType};
 use std::cmp;
 use std::default::Default;
 use std::iter::repeat;
@@ -96,7 +96,7 @@ pub trait FragmentDisplayListBuilding {
     fn compute_background_image_size(&self,
                                      style: &ComputedValues,
                                      bounds: &Rect<Au>,
-                                     image: &png::Image)
+                                     image: &net_image::Image)
                                      -> Size2D<Au>;
 
     /// Adds the display items necessary to paint the background image of this fragment to the
@@ -347,7 +347,7 @@ impl FragmentDisplayListBuilding for Fragment {
     fn compute_background_image_size(&self,
                                      style: &ComputedValues,
                                      bounds: &Rect<Au>,
-                                     image: &png::Image)
+                                     image: &net_image::Image)
                                      -> Size2D<Au> {
         // If `image_aspect_ratio` < `bounds_aspect_ratio`, the image is tall; otherwise, it is
         // wide.
@@ -1044,10 +1044,11 @@ impl FragmentDisplayListBuilding for Fragment {
                                                                             &*self.style,
                                                                             Cursor::DefaultCursor),
                                                (*clip).clone()),
-                    image: Arc::new(png::Image {
+                    image: Arc::new(net_image::Image {
                         width: width as u32,
                         height: height as u32,
-                        pixels: PixelsByColorType::RGBA8(canvas_data),
+                        format: net_image::Format::RGBA,
+                        data: canvas_data,
                     }),
                     stretch_size: stacking_relative_content_box.size,
                     image_rendering: image_rendering::T::Auto,

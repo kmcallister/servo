@@ -29,8 +29,7 @@ use geom::rect::Rect;
 use geom::side_offsets::SideOffsets2D;
 use geom::size::Size2D;
 use libc::types::common::c99::{uint16_t, uint32_t};
-use net_traits::image::base::Image;
-use png::PixelsByColorType;
+use net_traits::image::base::{Image, Format};
 use std::default::Default;
 use std::f32;
 use std::mem;
@@ -131,17 +130,15 @@ impl<'a> PaintContext<'a> {
                       image: Arc<Image>,
                       image_rendering: image_rendering::T) {
         let size = Size2D(image.width as i32, image.height as i32);
-        let (pixel_width, pixels, source_format) = match image.pixels {
-            PixelsByColorType::RGBA8(ref pixels) => (4, pixels, SurfaceFormat::B8G8R8A8),
-            PixelsByColorType::K8(ref pixels) => (1, pixels, SurfaceFormat::A8),
-            PixelsByColorType::RGB8(_) => panic!("RGB8 color type not supported"),
-            PixelsByColorType::KA8(_) => panic!("KA8 color type not supported"),
+        let (pixel_width, source_format) = match image.format {
+            Format::RGBA => (4, SurfaceFormat::B8G8R8A8),
+            Format::Luma => (1, SurfaceFormat::A8),
         };
         let stride = image.width * pixel_width;
 
         self.draw_target.make_current();
         let draw_target_ref = &self.draw_target;
-        let azure_surface = draw_target_ref.create_source_surface_from_data(pixels,
+        let azure_surface = draw_target_ref.create_source_surface_from_data(&image.data,
                                                                             size,
                                                                             stride as i32,
                                                                             source_format);

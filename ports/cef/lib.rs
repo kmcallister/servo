@@ -31,8 +31,8 @@ extern crate gleam;
 extern crate glutin_app;
 extern crate js;
 extern crate layers;
-extern crate png;
 extern crate rustc_unicode;
+
 extern crate script;
 extern crate script_traits;
 
@@ -40,7 +40,6 @@ extern crate net;
 extern crate msg;
 extern crate util;
 extern crate style;
-extern crate stb_image;
 
 extern crate libc;
 extern crate url as std_url;

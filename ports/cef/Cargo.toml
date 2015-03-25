@@ -59,9 +59,6 @@ git = "https://github.com/servo/rust-layers"
 [dependencies.png]
 git = "https://github.com/servo/rust-png"
 
-[dependencies.stb_image]
-git = "https://github.com/servo/rust-stb-image"
-
 [dependencies.core_foundation]
 git = "https://github.com/servo/rust-core-foundation"
 
@@ -84,3 +81,4 @@ git = "https://github.com/servo/rust-cgl"
 url = "*"
 libc = "*"
 objc = "0.1"
+image = "0.3"
