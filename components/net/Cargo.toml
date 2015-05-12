@@ -19,6 +19,10 @@ path = "../devtools_traits"
 [dependencies.geom]
 git = "https://github.com/servo/rust-geom"
 
+[dependencies.image]
+git = "https://github.com/servo/image"
+rev = "servo"
+
 [dependencies]
 url = "0.2.16"
 time = "0.1.17"
@@ -30,4 +34,3 @@ regex_macros = "0.1.8"
 hyper = "0.3"
 flate2 = "0.2.0"
 uuid = "0.1.16"
-image = "0.3"

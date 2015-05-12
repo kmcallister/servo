@@ -77,8 +77,11 @@ git = "https://github.com/servo/gleam"
 [dependencies.cgl]
 git = "https://github.com/servo/rust-cgl"
 
+[dependencies.image]
+git = "https://github.com/servo/image"
+rev = "servo"
+
 [dependencies]
 url = "*"
 libc = "*"
 objc = "0.1"
-image = "0.3"

@@ -16,7 +16,10 @@ path = "../util"
 [dependencies.msg]
 path = "../msg"
 
+[dependencies.image]
+git = "https://github.com/servo/image"
+rev = "servo"
+
 [dependencies]
 url = "0.2.16"
 hyper = "0.3"
-image = "0.3"

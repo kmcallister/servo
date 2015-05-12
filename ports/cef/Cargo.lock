@@ -14,7 +14,7 @@ dependencies = [
  "gfx 0.0.1",
  "gleam 0.0.1 (git+https://github.com/servo/gleam)",
  "glutin_app 0.0.1",
- "image 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "image 0.3.9 (git+https://github.com/servo/image?rev=servo)",
  "js 0.1.0 (git+https://github.com/servo/rust-mozjs)",
  "layers 0.1.0 (git+https://github.com/servo/rust-layers)",
  "libc 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -574,7 +574,7 @@ dependencies = [
 [[package]]
 name = "image"
 version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/servo/image?rev=servo#121e3c354bb67226e69243379fe6d5ffb3312978"
 dependencies = [
  "byteorder 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "enum_primitive 0.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -782,7 +782,7 @@ dependencies = [
  "flate2 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "geom 0.1.0 (git+https://github.com/servo/rust-geom)",
  "hyper 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
- "image 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "image 0.3.9 (git+https://github.com/servo/image?rev=servo)",
  "net_traits 0.0.1",
  "openssl 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 0.1.30 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -800,7 +800,7 @@ version = "0.0.1"
 dependencies = [
  "geom 0.1.0 (git+https://github.com/servo/rust-geom)",
  "hyper 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
- "image 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "image 0.3.9 (git+https://github.com/servo/image?rev=servo)",
  "msg 0.0.1",
  "url 0.2.31 (registry+https://github.com/rust-lang/crates.io-index)",
  "util 0.0.1",

@@ -54,9 +54,12 @@ git = "https://github.com/servo/rust-egl"
 [dependencies.gleam]
 git = "https://github.com/servo/gleam"
 
+[dependencies.image]
+git = "https://github.com/servo/image"
+rev = "servo"
+
 [dependencies]
 url = "0.2.16"
 time = "0.1.17"
 errno = "*"
 libc = "*"
-image = "0.3"
